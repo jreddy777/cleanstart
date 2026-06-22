@@ -13,6 +13,8 @@ import { Route as ReportRouteImport } from './routes/report'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ChatIndexRouteImport } from './routes/chat.index'
+import { Route as ChatSessionIdRouteImport } from './routes/chat.$sessionId'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 
 const ReportRoute = ReportRouteImport.update({
@@ -35,6 +37,16 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ChatIndexRoute = ChatIndexRouteImport.update({
+  id: '/chat/',
+  path: '/chat/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChatSessionIdRoute = ChatSessionIdRouteImport.update({
+  id: '/chat/$sessionId',
+  path: '/chat/$sessionId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiChatRoute = ApiChatRouteImport.update({
   id: '/api/chat',
   path: '/api/chat',
@@ -47,6 +59,8 @@ export interface FileRoutesByFullPath {
   '/history': typeof HistoryRoute
   '/report': typeof ReportRoute
   '/api/chat': typeof ApiChatRoute
+  '/chat/$sessionId': typeof ChatSessionIdRoute
+  '/chat/': typeof ChatIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +68,8 @@ export interface FileRoutesByTo {
   '/history': typeof HistoryRoute
   '/report': typeof ReportRoute
   '/api/chat': typeof ApiChatRoute
+  '/chat/$sessionId': typeof ChatSessionIdRoute
+  '/chat': typeof ChatIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,13 +78,37 @@ export interface FileRoutesById {
   '/history': typeof HistoryRoute
   '/report': typeof ReportRoute
   '/api/chat': typeof ApiChatRoute
+  '/chat/$sessionId': typeof ChatSessionIdRoute
+  '/chat/': typeof ChatIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about' | '/history' | '/report' | '/api/chat'
+  fullPaths:
+    | '/'
+    | '/about'
+    | '/history'
+    | '/report'
+    | '/api/chat'
+    | '/chat/$sessionId'
+    | '/chat/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/history' | '/report' | '/api/chat'
-  id: '__root__' | '/' | '/about' | '/history' | '/report' | '/api/chat'
+  to:
+    | '/'
+    | '/about'
+    | '/history'
+    | '/report'
+    | '/api/chat'
+    | '/chat/$sessionId'
+    | '/chat'
+  id:
+    | '__root__'
+    | '/'
+    | '/about'
+    | '/history'
+    | '/report'
+    | '/api/chat'
+    | '/chat/$sessionId'
+    | '/chat/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -77,6 +117,8 @@ export interface RootRouteChildren {
   HistoryRoute: typeof HistoryRoute
   ReportRoute: typeof ReportRoute
   ApiChatRoute: typeof ApiChatRoute
+  ChatSessionIdRoute: typeof ChatSessionIdRoute
+  ChatIndexRoute: typeof ChatIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -109,6 +151,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/chat/': {
+      id: '/chat/'
+      path: '/chat'
+      fullPath: '/chat/'
+      preLoaderRoute: typeof ChatIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/chat/$sessionId': {
+      id: '/chat/$sessionId'
+      path: '/chat/$sessionId'
+      fullPath: '/chat/$sessionId'
+      preLoaderRoute: typeof ChatSessionIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/chat': {
       id: '/api/chat'
       path: '/api/chat'
@@ -125,6 +181,8 @@ const rootRouteChildren: RootRouteChildren = {
   HistoryRoute: HistoryRoute,
   ReportRoute: ReportRoute,
   ApiChatRoute: ApiChatRoute,
+  ChatSessionIdRoute: ChatSessionIdRoute,
+  ChatIndexRoute: ChatIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
