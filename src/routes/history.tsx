@@ -1,4 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
+import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ArrowRight, FileText, Loader2, MessageCircle, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/history")({
   head: () => ({
@@ -7,10 +14,156 @@ export const Route = createFileRoute("/history")({
       { name: "description", content: "Review your past clean energy research sessions." },
     ],
   }),
-  component: () => (
-    <div className="mx-auto max-w-3xl px-4 py-16 text-center">
-      <h1 className="text-2xl font-semibold tracking-tight">Your Research Sessions</h1>
-      <p className="mt-2 text-sm text-muted-foreground">Built in Prompt 5.</p>
-    </div>
-  ),
+  component: HistoryPage,
 });
+
+type SessionRow = {
+  id: string;
+  title: string;
+  is_complete: boolean;
+  created_at: string;
+  updated_at: string;
+  messages: { count: number }[];
+  reports: { id: string }[];
+};
+
+function HistoryPage() {
+  const { user, loading: authLoading } = useAuth();
+  const [sessions, setSessions] = useState<SessionRow[] | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const load = async () => {
+    if (!user) return;
+    setLoading(true);
+    const { data, error } = await supabase
+      .from("sessions")
+      .select("id, title, is_complete, created_at, updated_at, messages(count), reports(id)")
+      .eq("user_id", user.id)
+      .order("updated_at", { ascending: false });
+    if (error) toast.error("Couldn't load sessions");
+    setSessions((data as unknown as SessionRow[]) ?? []);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    if (user) load();
+  }, [user]);
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("Delete this conversation and its report?")) return;
+    const { error } = await supabase.from("sessions").delete().eq("id", id);
+    if (error) return toast.error("Couldn't delete");
+    setSessions((s) => s?.filter((x) => x.id !== id) ?? null);
+    toast.success("Deleted");
+  };
+
+  if (authLoading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="mx-auto max-w-md px-4 py-20 text-center">
+        <h1 className="text-2xl font-semibold tracking-tight">Sign in to view your sessions</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Your conversations and reports are saved to your account.
+        </p>
+        <Button className="mt-6" asChild>
+          <Link to="/chat">Go to chat</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mx-auto max-w-3xl px-4 py-10">
+      <div className="mb-8 flex items-end justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight">Your sessions</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Pick up a past conversation or open its summary.
+          </p>
+        </div>
+        <Button asChild>
+          <Link to="/chat">
+            <Plus className="mr-1 h-4 w-4" /> New conversation
+          </Link>
+        </Button>
+      </div>
+
+      {loading && !sessions && (
+        <div className="flex justify-center py-16">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      )}
+
+      {sessions && sessions.length === 0 && (
+        <div className="rounded-2xl border border-dashed border-border bg-card p-10 text-center">
+          <MessageCircle className="mx-auto mb-3 h-8 w-8 text-muted-foreground" />
+          <h2 className="font-medium">No sessions yet</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Start a conversation to get personalized clean energy guidance.
+          </p>
+          <Button className="mt-5" asChild>
+            <Link to="/chat">Start chatting</Link>
+          </Button>
+        </div>
+      )}
+
+      {sessions && sessions.length > 0 && (
+        <ul className="space-y-3">
+          {sessions.map((s) => {
+            const msgCount = s.messages?.[0]?.count ?? 0;
+            const hasReport = (s.reports?.length ?? 0) > 0;
+            return (
+              <li
+                key={s.id}
+                className="group rounded-xl border border-border bg-card p-4 transition hover:border-primary/40"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="truncate font-medium">{s.title}</h3>
+                      {s.is_complete && (
+                        <Badge variant="secondary" className="shrink-0">Complete</Badge>
+                      )}
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {new Date(s.updated_at).toLocaleString()} · {msgCount} message{msgCount === 1 ? "" : "s"}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {hasReport && (
+                      <Button variant="ghost" size="sm" asChild>
+                        <Link to="/report" search={{ sessionId: s.id }}>
+                          <FileText className="mr-1 h-4 w-4" /> Report
+                        </Link>
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link to="/chat/$sessionId" params={{ sessionId: s.id }}>
+                        Open <ArrowRight className="ml-1 h-4 w-4" />
+                      </Link>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => handleDelete(s.id)}
+                      aria-label="Delete session"
+                    >
+                      <Trash2 className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
