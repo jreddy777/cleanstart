@@ -1,16 +1,403 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { useEffect, useState } from "react";
+import { z } from "zod";
+import { useAuth } from "@/hooks/use-auth";
+import { PrivacyBanner } from "@/components/PrivacyBanner";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Compass,
+  Download,
+  FileText,
+  Leaf,
+  Lightbulb,
+  Loader2,
+  Sparkles,
+} from "lucide-react";
+import { toast } from "sonner";
+import { generateReport, getReport } from "@/lib/report.functions";
+
+const searchSchema = z.object({
+  sessionId: z.string().uuid().optional(),
+  example: z.coerce.boolean().optional(),
+});
 
 export const Route = createFileRoute("/report")({
+  validateSearch: searchSchema,
   head: () => ({
     meta: [
       { title: "Your Research Summary — Clean Start" },
       { name: "description", content: "Your personalized clean energy research summary." },
     ],
   }),
-  component: () => (
-    <div className="mx-auto max-w-3xl px-4 py-16 text-center">
-      <h1 className="text-2xl font-semibold tracking-tight">Research Summary</h1>
-      <p className="mt-2 text-sm text-muted-foreground">Built in Prompt 4.</p>
-    </div>
-  ),
+  component: ReportPage,
 });
+
+type ReportRow = {
+  id: string;
+  session_id: string;
+  persona: string | null;
+  readiness_score: number | null;
+  top_options: unknown;
+  key_insights: unknown;
+  next_steps: unknown;
+  resources: unknown;
+  created_at: string;
+};
+
+type Option = { title: string; why: string; good_fit_when: string[]; tradeoffs: string };
+type Step = { step: string; detail: string };
+type Resource = { label: string; description: string };
+
+const EXAMPLE: ReportRow = {
+  id: "example",
+  session_id: "example",
+  persona: "homeowner",
+  readiness_score: 62,
+  created_at: new Date().toISOString(),
+  top_options: [
+    {
+      title: "Heat pump for heating and cooling",
+      why: "Your gas furnace is 14 years old and you already have ductwork — a great moment to consider electrifying.",
+      good_fit_when: ["Existing ducts in decent shape", "You want AC plus heat in one system", "You'd like lower long-term operating costs"],
+      tradeoffs: "Upfront cost is higher than swapping in another gas furnace; sizing matters.",
+    },
+    {
+      title: "Rooftop solar",
+      why: "South-facing roof, low shading, and an electrifying home make solar a strong long-term fit.",
+      good_fit_when: ["You plan to stay 5+ years", "Roof has 10+ years of life left", "You want to offset rising electric use"],
+      tradeoffs: "Payback depends on local rates and incentives — worth getting 2–3 quotes.",
+    },
+  ],
+  key_insights: [
+    "Electrifying one big appliance at a time keeps things manageable.",
+    "Heat pumps work in cold climates with proper sizing.",
+    "Insulation and air sealing make every other upgrade work better and cost less.",
+  ],
+  next_steps: [
+    { step: "Get a home energy assessment", detail: "Many utilities offer free or low-cost audits that flag the biggest wins." },
+    { step: "Ask three HVAC contractors about cold-climate heat pumps", detail: "Compare sizing and Manual J calculations, not just price." },
+    { step: "Check current federal and state incentives", detail: "They change yearly and stack with utility rebates." },
+  ],
+  resources: [
+    { label: "DOE Energy Saver", description: "Plain-language guides on heating, cooling, and weatherization." },
+    { label: "Rewiring America", description: "Calculators and step-by-step electrification guides." },
+    { label: "EPA Energy Star", description: "Product ratings to compare efficient appliances." },
+  ],
+};
+
+function ReportPage() {
+  const { sessionId, example } = Route.useSearch();
+  const { user, loading: authLoading } = useAuth();
+  const navigate = useNavigate();
+  const fetchReport = useServerFn(getReport);
+  const buildReport = useServerFn(generateReport);
+
+  const [report, setReport] = useState<ReportRow | null>(example ? EXAMPLE : null);
+  const [loading, setLoading] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (example || !sessionId || !user) return;
+    setLoading(true);
+    fetchReport({ data: { sessionId } })
+      .then((r) => setReport((r as ReportRow | null) ?? null))
+      .catch((e) => setError(e instanceof Error ? e.message : "Couldn't load report"))
+      .finally(() => setLoading(false));
+  }, [sessionId, user, example, fetchReport]);
+
+  const handleGenerate = async () => {
+    if (!sessionId) return;
+    setGenerating(true);
+    setError(null);
+    try {
+      const r = await buildReport({ data: { sessionId } });
+      setReport(r as ReportRow);
+      toast.success("Your report is ready");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Couldn't generate report";
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  if (example) {
+    return <ReportView report={EXAMPLE} isExample />;
+  }
+
+  if (!sessionId) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-20 text-center">
+        <Leaf className="mx-auto mb-4 h-8 w-8 text-primary" />
+        <h1 className="text-2xl font-semibold tracking-tight">Your research summary</h1>
+        <p className="mt-3 text-sm text-muted-foreground">
+          Have a conversation first, then come back here to generate a personalized report.
+        </p>
+        <div className="mt-6 flex justify-center gap-2">
+          <Button asChild>
+            <Link to="/chat">Start a conversation</Link>
+          </Button>
+          <Button variant="outline" asChild>
+            <Link to="/report" search={{ example: true }}>See an example</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (authLoading || loading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="mx-auto max-w-md px-4 py-20 text-center">
+        <h1 className="text-2xl font-semibold tracking-tight">Sign in to view your report</h1>
+        <Button className="mt-6" asChild>
+          <Link to="/chat">Go to chat</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  if (!report) {
+    return (
+      <div className="mx-auto max-w-2xl px-4 py-16 text-center">
+        <PrivacyBanner />
+        <Sparkles className="mx-auto mb-4 h-8 w-8 text-primary" />
+        <h1 className="text-2xl font-semibold tracking-tight">Generate your report</h1>
+        <p className="mt-3 text-sm text-muted-foreground">
+          We'll read your conversation and put together a calm, personalized summary you can save.
+        </p>
+        <Button className="mt-6" onClick={handleGenerate} disabled={generating}>
+          {generating ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating…
+            </>
+          ) : (
+            <>
+              <FileText className="mr-2 h-4 w-4" /> Generate report
+            </>
+          )}
+        </Button>
+        {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
+        <div className="mt-8">
+          <Button variant="ghost" size="sm" asChild>
+            <Link to="/chat/$sessionId" params={{ sessionId }}>
+              <ArrowLeft className="mr-1 h-4 w-4" /> Back to conversation
+            </Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return <ReportView report={report} onRegenerate={handleGenerate} regenerating={generating} />;
+}
+
+function ReportView({
+  report,
+  isExample,
+  onRegenerate,
+  regenerating,
+}: {
+  report: ReportRow;
+  isExample?: boolean;
+  onRegenerate?: () => void;
+  regenerating?: boolean;
+}) {
+  const topOptions = (report.top_options as Option[]) ?? [];
+  const insights = (report.key_insights as string[]) ?? [];
+  const steps = (report.next_steps as Step[]) ?? [];
+  const resources = (report.resources as Resource[]) ?? [];
+
+  const handleDownload = () => {
+    const md = reportToMarkdown(report, { topOptions, insights, steps, resources });
+    const blob = new Blob([md], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "clean-start-report.md";
+    document.body.append(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  return (
+    <>
+      <PrivacyBanner />
+      <div className="mx-auto max-w-3xl px-4 py-10">
+        <div className="mb-6 flex items-center justify-between gap-2">
+          <Button variant="ghost" size="sm" asChild>
+            <Link to="/chat">
+              <ArrowLeft className="mr-1 h-4 w-4" /> Back
+            </Link>
+          </Button>
+          <div className="flex items-center gap-2">
+            {!isExample && onRegenerate && (
+              <Button variant="outline" size="sm" onClick={onRegenerate} disabled={regenerating}>
+                {regenerating ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1 h-4 w-4" />}
+                Regenerate
+              </Button>
+            )}
+            <Button size="sm" onClick={handleDownload}>
+              <Download className="mr-1 h-4 w-4" /> Download
+            </Button>
+          </div>
+        </div>
+
+        <header className="mb-8 rounded-2xl border border-border bg-gradient-to-br from-primary-light/60 to-card p-6">
+          <div className="flex items-center gap-2">
+            <Leaf className="h-5 w-5 text-primary-dark" />
+            <span className="text-sm font-medium text-primary-dark">Clean Start</span>
+            {isExample && <Badge variant="secondary" className="ml-2">Example</Badge>}
+          </div>
+          <h1 className="mt-3 text-3xl font-semibold tracking-tight">Your research summary</h1>
+          <p className="mt-2 max-w-xl text-sm text-muted-foreground">
+            A calm overview of what we discussed, what fits your situation, and small steps you can take next.
+          </p>
+          {report.readiness_score !== null && (
+            <div className="mt-5">
+              <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+                <span>Readiness</span>
+                <span className="font-medium text-foreground">{report.readiness_score}/100</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-secondary">
+                <div
+                  className="h-full rounded-full bg-primary transition-all"
+                  style={{ width: `${report.readiness_score}%` }}
+                />
+              </div>
+            </div>
+          )}
+        </header>
+
+        <Section icon={<Compass className="h-4 w-4" />} title="Top options for you">
+          <div className="grid gap-3">
+            {topOptions.map((o, i) => (
+              <article key={i} className="rounded-xl border border-border bg-card p-5">
+                <h3 className="font-semibold">{o.title}</h3>
+                <p className="mt-2 text-sm text-muted-foreground">{o.why}</p>
+                {o.good_fit_when?.length > 0 && (
+                  <ul className="mt-3 space-y-1">
+                    {o.good_fit_when.map((g, j) => (
+                      <li key={j} className="flex items-start gap-2 text-sm">
+                        <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                        <span>{g}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {o.tradeoffs && (
+                  <p className="mt-3 rounded-md bg-secondary/60 p-3 text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground">Tradeoff:</span> {o.tradeoffs}
+                  </p>
+                )}
+              </article>
+            ))}
+          </div>
+        </Section>
+
+        <Section icon={<Lightbulb className="h-4 w-4" />} title="Key takeaways">
+          <ul className="space-y-2 rounded-xl border border-border bg-card p-5">
+            {insights.map((k, i) => (
+              <li key={i} className="flex items-start gap-2 text-sm">
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                <span>{k}</span>
+              </li>
+            ))}
+          </ul>
+        </Section>
+
+        <Section icon={<CheckCircle2 className="h-4 w-4" />} title="Suggested next steps">
+          <ol className="space-y-3">
+            {steps.map((s, i) => (
+              <li key={i} className="flex gap-3 rounded-xl border border-border bg-card p-4">
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary-light text-sm font-medium text-primary-dark">
+                  {i + 1}
+                </span>
+                <div>
+                  <div className="font-medium">{s.step}</div>
+                  <p className="mt-1 text-sm text-muted-foreground">{s.detail}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </Section>
+
+        <Section icon={<FileText className="h-4 w-4" />} title="Resources to explore">
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {resources.map((r, i) => (
+              <li key={i} className="rounded-xl border border-border bg-card p-4">
+                <div className="font-medium">{r.label}</div>
+                <div className="mt-1 text-sm text-muted-foreground">{r.description}</div>
+              </li>
+            ))}
+          </ul>
+        </Section>
+
+        <p className="mt-10 text-center text-xs text-muted-foreground">
+          Generated for guidance — always verify details with qualified local pros before committing to a project.
+        </p>
+      </div>
+    </>
+  );
+}
+
+function Section({
+  icon,
+  title,
+  children,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="mb-10">
+      <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+        <span className="text-primary">{icon}</span>
+        {title}
+      </h2>
+      {children}
+    </section>
+  );
+}
+
+function reportToMarkdown(
+  report: ReportRow,
+  parsed: { topOptions: Option[]; insights: string[]; steps: Step[]; resources: Resource[] },
+) {
+  const { topOptions, insights, steps, resources } = parsed;
+  const lines: string[] = [];
+  lines.push("# Clean Start — Your Research Summary", "");
+  if (report.readiness_score !== null) lines.push(`**Readiness:** ${report.readiness_score}/100`, "");
+  lines.push("## Top options");
+  topOptions.forEach((o) => {
+    lines.push(`### ${o.title}`, "", o.why, "");
+    if (o.good_fit_when?.length) {
+      lines.push("**Good fit when:**");
+      o.good_fit_when.forEach((g) => lines.push(`- ${g}`));
+      lines.push("");
+    }
+    if (o.tradeoffs) lines.push(`*Tradeoff:* ${o.tradeoffs}`, "");
+  });
+  lines.push("## Key takeaways");
+  insights.forEach((k) => lines.push(`- ${k}`));
+  lines.push("", "## Next steps");
+  steps.forEach((s, i) => lines.push(`${i + 1}. **${s.step}** — ${s.detail}`));
+  lines.push("", "## Resources");
+  resources.forEach((r) => lines.push(`- **${r.label}** — ${r.description}`));
+  return lines.join("\n");
+}
