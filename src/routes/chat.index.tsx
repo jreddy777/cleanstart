@@ -56,9 +56,10 @@ function ChatIndex() {
       });
   }, [user]);
 
-  const startConversation = async (persona: string) => {
+  const startConversation = async (persona: "homeowner" | "renter" | "curious") => {
     if (!user) {
-      setAuthOpen(true);
+      // Guest mode — no DB, messages stored in this browser only.
+      navigate({ to: "/chat/guest", search: { persona } });
       return;
     }
     setCreating(persona);
