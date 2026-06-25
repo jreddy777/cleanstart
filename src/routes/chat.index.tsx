@@ -56,9 +56,10 @@ function ChatIndex() {
       });
   }, [user]);
 
-  const startConversation = async (persona: string) => {
+  const startConversation = async (persona: "homeowner" | "renter" | "curious") => {
     if (!user) {
-      setAuthOpen(true);
+      // Guest mode — no DB, messages stored in this browser only.
+      navigate({ to: "/chat/guest", search: { persona } });
       return;
     }
     setCreating(persona);
@@ -163,9 +164,18 @@ function ChatIndex() {
         )}
 
         {!user && (
-          <p className="mt-10 text-center text-sm text-muted-foreground">
-            You'll be asked to sign in so we can save your conversation and report.
-          </p>
+          <div className="mt-10 text-center text-sm text-muted-foreground">
+            <p>
+              You can chat as a guest — messages stay in this browser and aren't saved.
+            </p>
+            <button
+              onClick={() => setAuthOpen(true)}
+              className="mt-2 text-foreground underline underline-offset-4 hover:text-primary"
+            >
+              Sign in instead
+            </button>{" "}
+            to save conversations and generate a report.
+          </div>
         )}
       </div>
       <AuthModal open={authOpen} onOpenChange={setAuthOpen} defaultTab="signup" />
