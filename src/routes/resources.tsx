@@ -79,7 +79,7 @@ const solar: Resource[] = [
     description:
       "NREL's free tool to estimate solar output for any U.S. address.",
     label: "Solar",
-    href: "https://pvwatts.nrel.gov",
+    href: "https://www.nrel.gov/pvwatts/",
   },
 ];
 
@@ -103,17 +103,17 @@ const evs: Resource[] = [
     description:
       "Independent EV reviews and owner reliability data.",
     label: "EVs",
-    href: "https://www.consumerreports.org/cars/electric-cars",
+    href: "https://www.consumerreports.org/cars/hybrids-evs/",
   },
 ];
 
 const renters: Resource[] = [
   {
-    title: "Green Renter",
+    title: "Energy Saver for Renters",
     description:
       "DOE guidance specifically for renters on reducing energy costs and accessing incentives.",
     label: "Renters",
-    href: "https://www.energy.gov/energysaver/renters",
+    href: "https://www.energy.gov/save/renters",
   },
   {
     title: "Rewiring America",
