@@ -103,7 +103,7 @@ const evs: Resource[] = [
     description:
       "Independent EV reviews and owner reliability data.",
     label: "EVs",
-    href: "https://www.consumerreports.org/cars/electric-cars",
+    href: "https://www.consumerreports.org/cars/hybrids-evs/",
   },
 ];
 
