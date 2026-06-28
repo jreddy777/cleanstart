@@ -1,56 +1,56 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
-import { generateObject } from "ai";
+import { generateText } from "ai";
 import { z } from "zod";
 
 const SessionInput = z.object({ sessionId: z.string().uuid() });
 
+// Simplified schema (no min/max/int constraints) to stay within Gemini's
+// structured-output state machine limits. We validate after parsing.
 const ReportSchema = z.object({
-  readiness_score: z
-    .number()
-    .int()
-    .min(0)
-    .max(100)
-    .describe("How ready the user is to act on clean energy options, 0-100."),
-  top_options: z
-    .array(
-      z.object({
-        title: z.string().describe("Short name of the option, e.g. 'Rooftop solar'."),
-        why: z.string().describe("Why this is a fit for this user, 1-2 sentences."),
-        good_fit_when: z.array(z.string()).describe("3-4 short conditions where this fits."),
-        tradeoffs: z.string().describe("Honest tradeoff in 1 sentence."),
-      }),
-    )
-    .min(1)
-    .max(4),
-  key_insights: z
-    .array(z.string())
-    .min(2)
-    .max(6)
-    .describe("Plain-language takeaways from the conversation."),
-  next_steps: z
-    .array(
-      z.object({
-        step: z.string().describe("Concrete, low-pressure next action."),
-        detail: z.string().describe("One sentence of context."),
-      }),
-    )
-    .min(2)
-    .max(5),
-  resources: z
-    .array(
-      z.object({
-        label: z.string(),
-        description: z.string().describe("Why this resource is useful."),
-      }),
-    )
-    .min(1)
-    .max(5)
-    .describe("Topic-based resources (no URLs, just plain references like 'EPA Energy Star' or 'DOE EV charging basics')."),
+  readiness_score: z.number(),
+
+  top_options: z.array(
+    z.object({
+      title: z.string(),
+      why: z.string(),
+      good_fit_when: z.array(z.string()),
+      tradeoffs: z.string(),
+    }),
+  ),
+  key_insights: z.array(z.string()),
+  next_steps: z.array(
+    z.object({
+      step: z.string(),
+      detail: z.string(),
+    }),
+  ),
+  resources: z.array(
+    z.object({
+      label: z.string(),
+      description: z.string(),
+    }),
+  ),
 });
 
+
 export type CleanStartReport = z.infer<typeof ReportSchema>;
+
+function extractJson(raw: string): unknown {
+  let s = raw.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+  const start = s.search(/[\{\[]/);
+  const end = Math.max(s.lastIndexOf("}"), s.lastIndexOf("]"));
+  if (start === -1 || end === -1) throw new Error("Model did not return JSON");
+  s = s.substring(start, end + 1);
+  try {
+    return JSON.parse(s);
+  } catch {
+    s = s.replace(/,\s*}/g, "}").replace(/,\s*]/g, "]").replace(/[\x00-\x1F\x7F]/g, "");
+    return JSON.parse(s);
+  }
+}
+
 
 export const getReport = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -118,12 +118,22 @@ Rules:
 - Resources are topic/agency references only — no URLs.
 - readiness_score reflects how concretely the user can act today (0 = just exploring, 100 = ready to start a project).`;
 
-    const { object } = await generateObject({
+    const schemaHint = `{
+  "readiness_score": number 0-100,
+  "top_options": [{ "title": string, "why": string, "good_fit_when": [string, ...], "tradeoffs": string }] (1-4 items),
+  "key_insights": [string, ...] (2-6 items),
+  "next_steps": [{ "step": string, "detail": string }] (2-5 items),
+  "resources": [{ "label": string, "description": string }] (1-5 items)
+}`;
+
+    const { text } = await generateText({
       model,
-      system,
-      schema: ReportSchema,
-      prompt: `CONVERSATION TRANSCRIPT:\n\n${transcript}\n\nWrite the personalized research summary now.`,
+      system: `${system}\n\nReturn ONLY a valid JSON object matching this shape (no markdown, no commentary):\n${schemaHint}`,
+      prompt: `CONVERSATION TRANSCRIPT:\n\n${transcript}\n\nWrite the personalized research summary now as JSON.`,
     });
+
+    const object = ReportSchema.parse(extractJson(text));
+
 
     const payload = {
       session_id: sessionId,
