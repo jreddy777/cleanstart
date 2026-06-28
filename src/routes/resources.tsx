@@ -79,7 +79,7 @@ const solar: Resource[] = [
     description:
       "NREL's free tool to estimate solar output for any U.S. address.",
     label: "Solar",
-    href: "https://pvwatts.nrel.gov",
+    href: "https://www.nrel.gov/pvwatts/",
   },
 ];
 
