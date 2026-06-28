@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ResourcesRouteImport } from './routes/resources'
 import { Route as ReportRouteImport } from './routes/report'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as AboutRouteImport } from './routes/about'
@@ -19,6 +20,11 @@ import { Route as ChatSessionIdRouteImport } from './routes/chat.$sessionId'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiPublicChatGuestRouteImport } from './routes/api/public/chat-guest'
 
+const ResourcesRoute = ResourcesRouteImport.update({
+  id: '/resources',
+  path: '/resources',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReportRoute = ReportRouteImport.update({
   id: '/report',
   path: '/report',
@@ -70,6 +76,7 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/history': typeof HistoryRoute
   '/report': typeof ReportRoute
+  '/resources': typeof ResourcesRoute
   '/api/chat': typeof ApiChatRoute
   '/chat/$sessionId': typeof ChatSessionIdRoute
   '/chat/guest': typeof ChatGuestRoute
@@ -81,6 +88,7 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/history': typeof HistoryRoute
   '/report': typeof ReportRoute
+  '/resources': typeof ResourcesRoute
   '/api/chat': typeof ApiChatRoute
   '/chat/$sessionId': typeof ChatSessionIdRoute
   '/chat/guest': typeof ChatGuestRoute
@@ -93,6 +101,7 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/history': typeof HistoryRoute
   '/report': typeof ReportRoute
+  '/resources': typeof ResourcesRoute
   '/api/chat': typeof ApiChatRoute
   '/chat/$sessionId': typeof ChatSessionIdRoute
   '/chat/guest': typeof ChatGuestRoute
@@ -106,6 +115,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/history'
     | '/report'
+    | '/resources'
     | '/api/chat'
     | '/chat/$sessionId'
     | '/chat/guest'
@@ -117,6 +127,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/history'
     | '/report'
+    | '/resources'
     | '/api/chat'
     | '/chat/$sessionId'
     | '/chat/guest'
@@ -128,6 +139,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/history'
     | '/report'
+    | '/resources'
     | '/api/chat'
     | '/chat/$sessionId'
     | '/chat/guest'
@@ -140,6 +152,7 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   HistoryRoute: typeof HistoryRoute
   ReportRoute: typeof ReportRoute
+  ResourcesRoute: typeof ResourcesRoute
   ApiChatRoute: typeof ApiChatRoute
   ChatSessionIdRoute: typeof ChatSessionIdRoute
   ChatGuestRoute: typeof ChatGuestRoute
@@ -149,6 +162,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/resources': {
+      id: '/resources'
+      path: '/resources'
+      fullPath: '/resources'
+      preLoaderRoute: typeof ResourcesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/report': {
       id: '/report'
       path: '/report'
@@ -220,6 +240,7 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   HistoryRoute: HistoryRoute,
   ReportRoute: ReportRoute,
+  ResourcesRoute: ResourcesRoute,
   ApiChatRoute: ApiChatRoute,
   ChatSessionIdRoute: ChatSessionIdRoute,
   ChatGuestRoute: ChatGuestRoute,
