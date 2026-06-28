@@ -109,11 +109,11 @@ const evs: Resource[] = [
 
 const renters: Resource[] = [
   {
-    title: "Green Renter",
+    title: "Energy Saver for Renters",
     description:
       "DOE guidance specifically for renters on reducing energy costs and accessing incentives.",
     label: "Renters",
-    href: "https://www.energy.gov/energysaver/renters",
+    href: "https://www.energy.gov/save/renters",
   },
   {
     title: "Rewiring America",
