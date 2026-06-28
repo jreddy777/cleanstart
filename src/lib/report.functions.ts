@@ -103,12 +103,22 @@ Rules:
 - Resources are topic/agency references only — no URLs.
 - readiness_score reflects how concretely the user can act today (0 = just exploring, 100 = ready to start a project).`;
 
-    const { object } = await generateObject({
+    const schemaHint = `{
+  "readiness_score": number 0-100,
+  "top_options": [{ "title": string, "why": string, "good_fit_when": [string, ...], "tradeoffs": string }] (1-4 items),
+  "key_insights": [string, ...] (2-6 items),
+  "next_steps": [{ "step": string, "detail": string }] (2-5 items),
+  "resources": [{ "label": string, "description": string }] (1-5 items)
+}`;
+
+    const { text } = await generateText({
       model,
-      system,
-      schema: ReportSchema,
-      prompt: `CONVERSATION TRANSCRIPT:\n\n${transcript}\n\nWrite the personalized research summary now.`,
+      system: `${system}\n\nReturn ONLY a valid JSON object matching this shape (no markdown, no commentary):\n${schemaHint}`,
+      prompt: `CONVERSATION TRANSCRIPT:\n\n${transcript}\n\nWrite the personalized research summary now as JSON.`,
     });
+
+    const object = ReportSchema.parse(extractJson(text));
+
 
     const payload = {
       session_id: sessionId,
