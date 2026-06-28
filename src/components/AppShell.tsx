@@ -9,8 +9,10 @@ const NAV = [
   { to: "/", label: "Home" },
   { to: "/chat", label: "Chat" },
   { to: "/history", label: "History" },
+  { to: "/resources", label: "Resources" },
   { to: "/about", label: "About" },
 ] as const;
+
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { user, signOut, loading } = useAuth();
