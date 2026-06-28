@@ -1,18 +1,16 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { createLovableAiGatewayProvider } from "@/lib/ai-gateway.server";
-import { generateObject } from "ai";
+import { generateText } from "ai";
 import { z } from "zod";
 
 const SessionInput = z.object({ sessionId: z.string().uuid() });
 
+// Simplified schema (no min/max/int constraints) to stay within Gemini's
+// structured-output state machine limits. We validate after parsing.
 const ReportSchema = z.object({
-  readiness_score: z
-    .number()
-    .int()
-    .min(0)
-    .max(100)
-    .describe("How ready the user is to act on clean energy options, 0-100."),
+  readiness_score: z.number(),
+
   top_options: z
     .array(
       z.object({
