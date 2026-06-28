@@ -37,6 +37,21 @@ const ReportSchema = z.object({
 
 export type CleanStartReport = z.infer<typeof ReportSchema>;
 
+function extractJson(raw: string): unknown {
+  let s = raw.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+  const start = s.search(/[\{\[]/);
+  const end = Math.max(s.lastIndexOf("}"), s.lastIndexOf("]"));
+  if (start === -1 || end === -1) throw new Error("Model did not return JSON");
+  s = s.substring(start, end + 1);
+  try {
+    return JSON.parse(s);
+  } catch {
+    s = s.replace(/,\s*}/g, "}").replace(/,\s*]/g, "]").replace(/[\x00-\x1F\x7F]/g, "");
+    return JSON.parse(s);
+  }
+}
+
+
 export const getReport = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => SessionInput.parse(d))
