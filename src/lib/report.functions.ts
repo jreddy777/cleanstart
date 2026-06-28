@@ -11,42 +11,29 @@ const SessionInput = z.object({ sessionId: z.string().uuid() });
 const ReportSchema = z.object({
   readiness_score: z.number(),
 
-  top_options: z
-    .array(
-      z.object({
-        title: z.string().describe("Short name of the option, e.g. 'Rooftop solar'."),
-        why: z.string().describe("Why this is a fit for this user, 1-2 sentences."),
-        good_fit_when: z.array(z.string()).describe("3-4 short conditions where this fits."),
-        tradeoffs: z.string().describe("Honest tradeoff in 1 sentence."),
-      }),
-    )
-    .min(1)
-    .max(4),
-  key_insights: z
-    .array(z.string())
-    .min(2)
-    .max(6)
-    .describe("Plain-language takeaways from the conversation."),
-  next_steps: z
-    .array(
-      z.object({
-        step: z.string().describe("Concrete, low-pressure next action."),
-        detail: z.string().describe("One sentence of context."),
-      }),
-    )
-    .min(2)
-    .max(5),
-  resources: z
-    .array(
-      z.object({
-        label: z.string(),
-        description: z.string().describe("Why this resource is useful."),
-      }),
-    )
-    .min(1)
-    .max(5)
-    .describe("Topic-based resources (no URLs, just plain references like 'EPA Energy Star' or 'DOE EV charging basics')."),
+  top_options: z.array(
+    z.object({
+      title: z.string(),
+      why: z.string(),
+      good_fit_when: z.array(z.string()),
+      tradeoffs: z.string(),
+    }),
+  ),
+  key_insights: z.array(z.string()),
+  next_steps: z.array(
+    z.object({
+      step: z.string(),
+      detail: z.string(),
+    }),
+  ),
+  resources: z.array(
+    z.object({
+      label: z.string(),
+      description: z.string(),
+    }),
+  ),
 });
+
 
 export type CleanStartReport = z.infer<typeof ReportSchema>;
 
