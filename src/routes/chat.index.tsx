@@ -223,7 +223,7 @@ function ChatPage() {
             {step === 1 ? (
               <TenureStep onPick={pickTenure} />
             ) : (
-              <ChipsStep tenure={tenure!} onPick={handleSend} disabled={isBusy} />
+              <ChipsStep tenure={tenure!} onPick={handleSend} onChange={resetTenure} disabled={isBusy} />
             )}
           </div>
         )}
