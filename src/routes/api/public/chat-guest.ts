@@ -86,9 +86,12 @@ export const Route = createFileRoute("/api/public/chat-guest")({
         const tenure = body.tenure ?? null;
         const personaFromTenure: Persona =
           tenure === "homeowner" || tenure === "renter" || tenure === "curious" ? tenure : null;
+        // If tenure/location are already known, skip the DISCOVERY stage so the
+        // model doesn't re-ask for context we already collected during onboarding.
+        const contextKnownBoost = (tenure ? 1 : 0) + (body.location ? 1 : 0);
         const baseSystem = buildSystemPrompt({
           persona: body.persona ?? personaFromTenure,
-          assistantTurnCount,
+          assistantTurnCount: assistantTurnCount + contextKnownBoost,
         });
         const system = `${buildContextSystem(tenure, body.location ?? null)}\n\n${baseSystem}`;
 
