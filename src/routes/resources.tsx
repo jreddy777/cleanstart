@@ -32,97 +32,84 @@ const incentives: Resource[] = [
   {
     title: "DSIRE",
     description:
-      "The national database of state and federal clean energy incentives and rebates.",
+      "The most comprehensive database of state and federal clean energy incentives and policies in the U.S., managed by NC State University.",
     label: "Incentives",
-    href: "https://www.dsireusa.org",
+    href: "https://dsireusa.org",
   },
   {
     title: "EnergySage",
     description:
-      "Compare solar quotes and understand financing options with unbiased marketplace data.",
-    label: "Solar",
+      "Compare solar, heat pump, and community solar options with unbiased marketplace data backed by the U.S. Department of Energy.",
+    label: "Solar & Heat Pumps",
     href: "https://www.energysage.com",
   },
   {
-    title: "IRS Clean Energy Credits",
+    title: "IRS Home Energy Tax Credits",
     description:
-      "Official IRS guidance on federal EV and home energy tax credits.",
+      "Official IRS guidance on federal tax credits for energy-efficient home improvements including heat pumps, insulation, and windows.",
     label: "Tax Credits",
-    href: "https://www.irs.gov/credits-deductions/credits-for-new-clean-vehicles-purchased-in-2023-or-after",
-  },
-  {
-    title: "Energy.gov Rebates",
-    description:
-      "DOE overview of current home efficiency tax credit programs.",
-    label: "Efficiency",
-    href: "https://www.energy.gov/energysaver/federal-tax-credits-energy-efficiency",
+    href: "https://www.irs.gov/credits-deductions/home-energy-tax-credits",
   },
 ];
 
 const solar: Resource[] = [
   {
-    title: "EnergyStar",
-    description:
-      "EPA's program for energy-efficient appliances, windows, HVAC, and building materials.",
-    label: "Efficiency",
-    href: "https://www.energystar.gov",
-  },
-  {
-    title: "NREL",
-    description:
-      "The National Renewable Energy Laboratory — research, data, and tools on solar, wind, and storage.",
-    label: "Research",
-    href: "https://www.nrel.gov",
-  },
-  {
     title: "PVWatts Calculator",
     description:
-      "NREL's free tool to estimate solar output for any U.S. address.",
+      "NREL's free tool to estimate how much electricity a solar system would generate at any U.S. address.",
     label: "Solar",
-    href: "https://www.nrel.gov/pvwatts/",
+    href: "https://pvwatts.nrel.gov",
+  },
+  {
+    title: "Rewiring America Savings Calculator",
+    description:
+      "Nonprofit tool that estimates your savings and available incentives for heat pumps, solar, EVs, and other electrification upgrades.",
+    label: "Electrification",
+    href: "https://homes.rewiringamerica.org/calculator",
+  },
+  {
+    title: "Rewiring America Personal Electrification Planner",
+    description:
+      "A step-by-step custom plan for electrifying your home, including upgrade sequencing, costs, and available rebates.",
+    label: "Electrification",
+    href: "https://homes.rewiringamerica.org/personal-electrification-planner",
   },
 ];
 
 const evs: Resource[] = [
   {
-    title: "PlugShare",
+    title: "DOE Alternative Fueling Station Locator",
     description:
-      "Community-sourced EV charging station map across North America.",
-    label: "EVs",
-    href: "https://www.plugshare.com",
-  },
-  {
-    title: "Alternative Fuels Station Locator",
-    description:
-      "DOE tool to find EV, CNG, hydrogen, and other alt-fuel stations near you.",
+      "The U.S. Department of Energy's official map of EV charging stations, updated daily across all 50 states.",
     label: "EVs",
     href: "https://afdc.energy.gov/stations",
   },
   {
-    title: "Consumer Reports EV Guide",
+    title: "EnergySage Community Solar",
     description:
-      "Independent EV reviews and owner reliability data.",
-    label: "EVs",
-    href: "https://www.consumerreports.org/cars/hybrids-evs/",
+      "Find and compare community solar subscriptions for renters and homeowners who can't install rooftop panels.",
+    label: "Community Solar",
+    href: "https://communitysolar.energysage.com",
   },
 ];
 
 const renters: Resource[] = [
   {
-    title: "Energy Saver for Renters",
+    title: "Rewiring America — Electrification for Renters",
     description:
-      "DOE guidance specifically for renters on reducing energy costs and accessing incentives.",
+      "Renter-specific guidance on portable upgrades, talking to your landlord, and accessing EV and appliance credits.",
     label: "Renters",
-    href: "https://www.energy.gov/save/renters",
+    href: "https://www.rewiringamerica.org/electrification-for-renters",
   },
   {
-    title: "Rewiring America",
+    title: "IRS Energy Efficient Home Improvement Credit",
     description:
-      "Nonprofit focused on household electrification — calculators, policy explainers, and planning tools.",
-    label: "Electrification",
-    href: "https://www.rewiringamerica.org",
+      "Detailed IRS page on the credit for insulation, windows, heat pumps, and home energy audits — up to $3,200 annually.",
+    label: "Tax Credits",
+    href: "https://www.irs.gov/credits-deductions/energy-efficient-home-improvement-credit",
   },
 ];
+
 
 function ResourcesPage() {
   return (
