@@ -172,10 +172,28 @@ function ChatPage() {
           <>
             {messages.filter((m) => m.role === "assistant").length >= 3 && (
               <div className="mb-3 flex justify-end">
-                <Button variant="outline" size="sm" asChild>
-                  <Link to="/report">
-                    <FileText className="mr-1 h-4 w-4" /> Generate report
-                  </Link>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    try {
+                      const transcript = messages.map((m) => ({
+                        role: m.role,
+                        content: m.parts
+                          .map((p) => (p.type === "text" ? p.text : ""))
+                          .join(""),
+                      })).filter((m) => m.content.trim().length > 0);
+                      window.sessionStorage.setItem(
+                        "cleanstart.guest-report.v1",
+                        JSON.stringify({ tenure, messages: transcript }),
+                      );
+                    } catch {
+                      // ignore
+                    }
+                    navigate({ to: "/report", search: { guest: true } });
+                  }}
+                >
+                  <FileText className="mr-1 h-4 w-4" /> Generate report
                 </Button>
               </div>
             )}
