@@ -65,7 +65,7 @@ const solar: Resource[] = [
     description:
       "Nonprofit tool that estimates your savings and available incentives for heat pumps, solar, EVs, and other electrification upgrades.",
     label: "Electrification",
-    href: "https://homes.rewiringamerica.org/calculator",
+    href: "https://www.rewiringamerica.org/",
   },
   {
     title: "Rewiring America Personal Electrification Planner",
