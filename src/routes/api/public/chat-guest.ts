@@ -4,9 +4,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { convertToModelMessages, streamText, type UIMessage } from "ai";
 
 type Tenure = "homeowner" | "renter" | "curious" | null;
+type Location = { zip: string; city: string; state: string; utility: string } | null;
 type Body = {
   persona?: Persona;
   tenure?: Tenure;
+  location?: Location;
   messages?: UIMessage[];
 };
 
@@ -16,9 +18,23 @@ const TENURE_LABEL: Record<NonNullable<Tenure>, string> = {
   curious: "Exploring / not sure yet",
 };
 
-function buildTenureSystem(tenure: Tenure) {
-  const label = tenure ? TENURE_LABEL[tenure] : "Unknown";
-  return `You are Clean Start, a friendly and knowledgeable clean energy guide for households. Your job is to educate — never to sell. Keep answers conversational, plain-language, and under 120 words. The user has identified as: ${label}. Use this to tailor your response — homeowners get advice on installations and tax credits; renters get community solar, renter rebates, and no-install options; explorers get accessible overviews. Always end your first response with a follow-up question about what state they're in, as programs and rebates vary significantly by location.`;
+function buildContextSystem(tenure: Tenure, location: Location) {
+  const tenureLabel = tenure ? TENURE_LABEL[tenure] : "Unknown";
+  const locationLine = location
+    ? `${location.city}, ${location.state} served by ${location.utility}`
+    : "Location not provided";
+  return `You are Clean Start, a friendly and knowledgeable clean energy guide for households. Your job is to educate — never to sell. Keep answers conversational, plain-language, and under 120 words.
+
+The user has provided the following context:
+- Tenure: ${tenureLabel}
+- Location: ${locationLine}
+
+Use this context to personalize every response from message one:
+- Homeowners: focus on installations, tax credits, and utility rebate programs
+- Renters: focus on community solar, portable upgrades, renter-eligible rebates, and EV credits
+- Explorers: give accessible overviews of all options
+- When location is known: reference the city, state, and utility by name; surface state-specific programs and utility rebates relevant to that service territory
+- When location is unknown: ask for zip code naturally as your first follow-up question`;
 }
 
 // Very small in-memory rate limiter, per worker instance. Best-effort only.
@@ -65,9 +81,7 @@ export const Route = createFileRoute("/api/public/chat-guest")({
           persona: body.persona ?? null,
           assistantTurnCount,
         });
-        const system = body.tenure
-          ? `${buildTenureSystem(body.tenure)}\n\n${baseSystem}`
-          : baseSystem;
+        const system = `${buildContextSystem(body.tenure ?? null, body.location ?? null)}\n\n${baseSystem}`;
 
         const gateway = createLovableAiGatewayProvider(LOVABLE_API_KEY);
         const model = gateway("google/gemini-3-flash-preview");
