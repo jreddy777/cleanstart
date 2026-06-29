@@ -99,7 +99,7 @@ const renters: Resource[] = [
     description:
       "Renter-specific guidance on portable upgrades, talking to your landlord, and accessing EV and appliance credits.",
     label: "Renters",
-    href: "https://www.rewiringamerica.org/electrification-for-renters",
+    href: "https://www.rewiringamerica.org/",
   },
   {
     title: "IRS Energy Efficient Home Improvement Credit",
