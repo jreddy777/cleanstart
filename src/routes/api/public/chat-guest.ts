@@ -87,15 +87,22 @@ export const Route = createFileRoute("/api/public/chat-guest")({
         const personaFromTenure: Persona =
           tenure === "homeowner" || tenure === "renter" || tenure === "curious" ? tenure : null;
 
-        // Verify onboarding context survives to prompt construction. If these
-        // log as null the placeholders fall back to "not provided" and the
-        // model will re-ask — which is the bug we just fixed.
-        console.log("Session context:", {
-          tenure,
-          city: location?.city ?? null,
-          state: location?.state ?? null,
-          utility: location?.utility ?? null,
-        });
+        // Resolve placeholders up front so the system prompt never contains
+        // unfilled [BRACKET] tokens — the model treats those as unknown and
+        // re-asks the user.
+        const tenureValue = tenure ? TENURE_LABEL[tenure] : "not provided";
+        const city = location?.city ?? "not provided";
+        const state = location?.state ?? "not provided";
+        const utility = location?.utility ?? "not provided";
+
+        // Safety log: if any of these read "not provided", the bug is in how
+        // onboarding persists tenure/location, not in this handler.
+        console.log(
+          "Injecting context — tenure:", tenureValue,
+          "city:", city,
+          "state:", state,
+          "utility:", utility,
+        );
 
         // When onboarding context exists, skip the base prompt's DISCOVERY
         // stage (which instructs the model to ask getting-to-know-you
@@ -105,7 +112,7 @@ export const Route = createFileRoute("/api/public/chat-guest")({
           persona: body.persona ?? personaFromTenure,
           assistantTurnCount: assistantTurnCount + contextKnownBoost,
         });
-        const system = `${buildContextSystem(tenure, location)}\n\n${baseSystem}`;
+        const system = `${buildContextSystem(tenureValue, city, state, utility)}\n\n${baseSystem}`;
 
         const gateway = createLovableAiGatewayProvider(LOVABLE_API_KEY);
         const model = gateway("google/gemini-3-flash-preview");
