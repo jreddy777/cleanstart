@@ -65,7 +65,7 @@ const solar: Resource[] = [
     description:
       "Nonprofit tool that estimates your savings and available incentives for heat pumps, solar, EVs, and other electrification upgrades.",
     label: "Electrification",
-    href: "https://www.rewiringamerica.org/",
+    href: "https://homes.rewiringamerica.org/calculator",
   },
   {
     title: "Rewiring America Personal Electrification Planner",
@@ -99,7 +99,7 @@ const renters: Resource[] = [
     description:
       "Renter-specific guidance on portable upgrades, talking to your landlord, and accessing EV and appliance credits.",
     label: "Renters",
-    href: "https://www.rewiringamerica.org/electrification-for-renters",
+    href: "https://www.rewiringamerica.org/",
   },
   {
     title: "IRS Energy Efficient Home Improvement Credit",
