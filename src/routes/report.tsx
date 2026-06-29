@@ -644,3 +644,46 @@ function reportToMarkdown(
   resources.forEach((r) => lines.push(`- **${r.label}** — ${r.description}`));
   return lines.join("\n");
 }
+
+function escapeHtml(s: string) {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function reportToHtml(
+  report: ReportRow,
+  parsed: { topOptions: Option[]; insights: string[]; steps: Step[]; resources: Resource[] },
+) {
+  const { topOptions, insights, steps, resources } = parsed;
+  const e = escapeHtml;
+  const parts: string[] = [];
+  parts.push(
+    `<!doctype html><html><head><meta charset="utf-8"><title>Clean Start — Your Research Summary</title>`,
+    `<style>body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:760px;margin:2rem auto;padding:0 1rem;color:#1a1a1a;line-height:1.5}h1{font-size:1.8rem}h2{margin-top:2rem;border-bottom:1px solid #e5e5e5;padding-bottom:.25rem}h3{margin-bottom:.25rem}.muted{color:#666}.tradeoff{background:#f4f4f5;padding:.5rem .75rem;border-radius:.5rem;font-size:.9rem}</style>`,
+    `</head><body>`,
+    `<h1>Clean Start — Your Research Summary</h1>`,
+  );
+  if (report.readiness_score !== null)
+    parts.push(`<p><strong>Readiness:</strong> ${report.readiness_score}/100</p>`);
+  parts.push(`<h2>Top options</h2>`);
+  topOptions.forEach((o) => {
+    parts.push(`<h3>${e(o.title)}</h3><p>${e(o.why)}</p>`);
+    if (o.good_fit_when?.length) {
+      parts.push(`<p><strong>Good fit when:</strong></p><ul>`);
+      o.good_fit_when.forEach((g) => parts.push(`<li>${e(g)}</li>`));
+      parts.push(`</ul>`);
+    }
+    if (o.tradeoffs) parts.push(`<p class="tradeoff"><strong>Tradeoff:</strong> ${e(o.tradeoffs)}</p>`);
+  });
+  parts.push(`<h2>Key takeaways</h2><ul>`);
+  insights.forEach((k) => parts.push(`<li>${e(k)}</li>`));
+  parts.push(`</ul><h2>Suggested next steps</h2><ol>`);
+  steps.forEach((s) => parts.push(`<li><strong>${e(s.step)}</strong> — ${e(s.detail)}</li>`));
+  parts.push(`</ol><h2>Resources to explore</h2><ul>`);
+  resources.forEach((r) => parts.push(`<li><strong>${e(r.label)}</strong> — ${e(r.description)}</li>`));
+  parts.push(`</ul></body></html>`);
+  return parts.join("");
+}
