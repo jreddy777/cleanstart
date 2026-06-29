@@ -229,6 +229,7 @@ function ChatPage() {
             </ConversationContent>
             <ConversationScrollButton />
           </Conversation>
+          </>
         ) : (
           <div className="flex-1 overflow-y-auto">
             {step === 1 ? (
