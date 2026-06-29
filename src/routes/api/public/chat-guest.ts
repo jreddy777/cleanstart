@@ -81,9 +81,7 @@ export const Route = createFileRoute("/api/public/chat-guest")({
           persona: body.persona ?? null,
           assistantTurnCount,
         });
-        const system = body.tenure
-          ? `${buildTenureSystem(body.tenure)}\n\n${baseSystem}`
-          : baseSystem;
+        const system = `${buildContextSystem(body.tenure ?? null, body.location ?? null)}\n\n${baseSystem}`;
 
         const gateway = createLovableAiGatewayProvider(LOVABLE_API_KEY);
         const model = gateway("google/gemini-3-flash-preview");
