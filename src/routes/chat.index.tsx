@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
@@ -9,7 +9,8 @@ import {
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
 import { MessageResponse } from "@/components/ai-elements/message";
-import { Home, Building2, HelpCircle, ArrowUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Home, Building2, HelpCircle, ArrowUp, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -168,7 +169,17 @@ function ChatPage() {
       <div className="mx-auto flex h-[calc(100vh-12rem)] min-h-[500px] max-w-3xl flex-col px-4 pb-4 pt-4">
         {/* Thread / step area */}
         {step === 3 ? (
-          <Conversation className="flex-1">
+          <>
+            {messages.filter((m) => m.role === "assistant").length >= 3 && (
+              <div className="mb-3 flex justify-end">
+                <Button variant="outline" size="sm" asChild>
+                  <Link to="/report">
+                    <FileText className="mr-1 h-4 w-4" /> Generate report
+                  </Link>
+                </Button>
+              </div>
+            )}
+            <Conversation className="flex-1">
             <ConversationContent className="px-0">
               <div className="flex flex-col gap-6">
                 {messages.map((m) => {
@@ -218,6 +229,7 @@ function ChatPage() {
             </ConversationContent>
             <ConversationScrollButton />
           </Conversation>
+          </>
         ) : (
           <div className="flex-1 overflow-y-auto">
             {step === 1 ? (
