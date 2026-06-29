@@ -7,8 +7,15 @@ import { PrivacyBanner } from "@/components/PrivacyBanner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   ArrowLeft,
   CheckCircle2,
+  ChevronDown,
   Compass,
   Download,
   FileText,
@@ -279,17 +286,182 @@ function ReportView({
   const steps = (report.next_steps as Step[]) ?? [];
   const resources = (report.resources as Resource[]) ?? [];
 
-  const handleDownload = () => {
-    const md = reportToMarkdown(report, { topOptions, insights, steps, resources });
-    const blob = new Blob([md], { type: "text/markdown" });
+  const filenameBase = "clean-start-report";
+
+  const triggerDownload = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "clean-start-report.md";
+    a.download = filename;
     document.body.append(a);
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+  };
+
+  const downloadMarkdown = () => {
+    const md = reportToMarkdown(report, { topOptions, insights, steps, resources });
+    triggerDownload(new Blob([md], { type: "text/markdown" }), `${filenameBase}.md`);
+  };
+
+  const downloadText = () => {
+    const md = reportToMarkdown(report, { topOptions, insights, steps, resources });
+    triggerDownload(new Blob([md], { type: "text/plain" }), `${filenameBase}.txt`);
+  };
+
+  const downloadHtml = () => {
+    const html = reportToHtml(report, { topOptions, insights, steps, resources });
+    triggerDownload(new Blob([html], { type: "text/html" }), `${filenameBase}.html`);
+  };
+
+  const downloadJson = () => {
+    triggerDownload(
+      new Blob([JSON.stringify(report, null, 2)], { type: "application/json" }),
+      `${filenameBase}.json`,
+    );
+  };
+
+  const downloadPdf = async () => {
+    try {
+      const { jsPDF } = await import("jspdf");
+      const doc = new jsPDF({ unit: "pt", format: "letter" });
+      const margin = 48;
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const maxWidth = pageWidth - margin * 2;
+      let y = margin;
+
+      const ensureSpace = (h: number) => {
+        if (y + h > pageHeight - margin) {
+          doc.addPage();
+          y = margin;
+        }
+      };
+      const writeLines = (text: string, size: number, bold = false) => {
+        doc.setFont("helvetica", bold ? "bold" : "normal");
+        doc.setFontSize(size);
+        const lines = doc.splitTextToSize(text, maxWidth) as string[];
+        const lineHeight = size * 1.3;
+        for (const line of lines) {
+          ensureSpace(lineHeight);
+          doc.text(line, margin, y);
+          y += lineHeight;
+        }
+      };
+      const gap = (h = 8) => {
+        y += h;
+      };
+
+      writeLines("Clean Start — Your Research Summary", 20, true);
+      gap(6);
+      if (report.readiness_score !== null) {
+        writeLines(`Readiness: ${report.readiness_score}/100`, 11);
+        gap(4);
+      }
+
+      writeLines("Top options", 14, true);
+      gap(2);
+      topOptions.forEach((o) => {
+        writeLines(o.title, 12, true);
+        writeLines(o.why, 11);
+        if (o.good_fit_when?.length) {
+          writeLines("Good fit when:", 11, true);
+          o.good_fit_when.forEach((g) => writeLines(`• ${g}`, 11));
+        }
+        if (o.tradeoffs) writeLines(`Tradeoff: ${o.tradeoffs}`, 11);
+        gap(6);
+      });
+
+      writeLines("Key takeaways", 14, true);
+      gap(2);
+      insights.forEach((k) => writeLines(`• ${k}`, 11));
+      gap(6);
+
+      writeLines("Suggested next steps", 14, true);
+      gap(2);
+      steps.forEach((s, i) => {
+        writeLines(`${i + 1}. ${s.step}`, 12, true);
+        writeLines(s.detail, 11);
+        gap(4);
+      });
+
+      writeLines("Resources to explore", 14, true);
+      gap(2);
+      resources.forEach((r) => {
+        writeLines(r.label, 12, true);
+        writeLines(r.description, 11);
+        gap(4);
+      });
+
+      doc.save(`${filenameBase}.pdf`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't create PDF");
+    }
+  };
+
+  const downloadDocx = async () => {
+    try {
+      const { Document, Packer, Paragraph, HeadingLevel, TextRun } = await import("docx");
+      const children: InstanceType<typeof Paragraph>[] = [];
+      children.push(
+        new Paragraph({
+          heading: HeadingLevel.TITLE,
+          children: [new TextRun("Clean Start — Your Research Summary")],
+        }),
+      );
+      if (report.readiness_score !== null) {
+        children.push(
+          new Paragraph({
+            children: [new TextRun({ text: `Readiness: ${report.readiness_score}/100`, bold: true })],
+          }),
+        );
+      }
+      children.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun("Top options")] }));
+      topOptions.forEach((o) => {
+        children.push(new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun(o.title)] }));
+        children.push(new Paragraph({ children: [new TextRun(o.why)] }));
+        if (o.good_fit_when?.length) {
+          children.push(
+            new Paragraph({ children: [new TextRun({ text: "Good fit when:", bold: true })] }),
+          );
+          o.good_fit_when.forEach((g) =>
+            children.push(new Paragraph({ children: [new TextRun(`• ${g}`)] })),
+          );
+        }
+        if (o.tradeoffs)
+          children.push(
+            new Paragraph({
+              children: [
+                new TextRun({ text: "Tradeoff: ", bold: true }),
+                new TextRun(o.tradeoffs),
+              ],
+            }),
+          );
+      });
+      children.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun("Key takeaways")] }));
+      insights.forEach((k) => children.push(new Paragraph({ children: [new TextRun(`• ${k}`)] })));
+      children.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun("Suggested next steps")] }));
+      steps.forEach((s, i) => {
+        children.push(
+          new Paragraph({
+            heading: HeadingLevel.HEADING_2,
+            children: [new TextRun(`${i + 1}. ${s.step}`)],
+          }),
+        );
+        children.push(new Paragraph({ children: [new TextRun(s.detail)] }));
+      });
+      children.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun("Resources to explore")] }));
+      resources.forEach((r) => {
+        children.push(new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun(r.label)] }));
+        children.push(new Paragraph({ children: [new TextRun(r.description)] }));
+      });
+
+      const doc = new Document({ sections: [{ children }] });
+      const blob = await Packer.toBlob(doc);
+      triggerDownload(blob, `${filenameBase}.docx`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't create Word doc");
+    }
   };
 
   return (
@@ -309,9 +481,22 @@ function ReportView({
                 Regenerate
               </Button>
             )}
-            <Button size="sm" onClick={handleDownload}>
-              <Download className="mr-1 h-4 w-4" /> Download
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm">
+                  <Download className="mr-1 h-4 w-4" /> Download
+                  <ChevronDown className="ml-1 h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={downloadPdf}>PDF (.pdf)</DropdownMenuItem>
+                <DropdownMenuItem onClick={downloadDocx}>Word (.docx)</DropdownMenuItem>
+                <DropdownMenuItem onClick={downloadMarkdown}>Markdown (.md)</DropdownMenuItem>
+                <DropdownMenuItem onClick={downloadHtml}>HTML (.html)</DropdownMenuItem>
+                <DropdownMenuItem onClick={downloadText}>Plain text (.txt)</DropdownMenuItem>
+                <DropdownMenuItem onClick={downloadJson}>JSON (.json)</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
@@ -458,4 +643,47 @@ function reportToMarkdown(
   lines.push("", "## Resources");
   resources.forEach((r) => lines.push(`- **${r.label}** — ${r.description}`));
   return lines.join("\n");
+}
+
+function escapeHtml(s: string) {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function reportToHtml(
+  report: ReportRow,
+  parsed: { topOptions: Option[]; insights: string[]; steps: Step[]; resources: Resource[] },
+) {
+  const { topOptions, insights, steps, resources } = parsed;
+  const e = escapeHtml;
+  const parts: string[] = [];
+  parts.push(
+    `<!doctype html><html><head><meta charset="utf-8"><title>Clean Start — Your Research Summary</title>`,
+    `<style>body{font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:760px;margin:2rem auto;padding:0 1rem;color:#1a1a1a;line-height:1.5}h1{font-size:1.8rem}h2{margin-top:2rem;border-bottom:1px solid #e5e5e5;padding-bottom:.25rem}h3{margin-bottom:.25rem}.muted{color:#666}.tradeoff{background:#f4f4f5;padding:.5rem .75rem;border-radius:.5rem;font-size:.9rem}</style>`,
+    `</head><body>`,
+    `<h1>Clean Start — Your Research Summary</h1>`,
+  );
+  if (report.readiness_score !== null)
+    parts.push(`<p><strong>Readiness:</strong> ${report.readiness_score}/100</p>`);
+  parts.push(`<h2>Top options</h2>`);
+  topOptions.forEach((o) => {
+    parts.push(`<h3>${e(o.title)}</h3><p>${e(o.why)}</p>`);
+    if (o.good_fit_when?.length) {
+      parts.push(`<p><strong>Good fit when:</strong></p><ul>`);
+      o.good_fit_when.forEach((g) => parts.push(`<li>${e(g)}</li>`));
+      parts.push(`</ul>`);
+    }
+    if (o.tradeoffs) parts.push(`<p class="tradeoff"><strong>Tradeoff:</strong> ${e(o.tradeoffs)}</p>`);
+  });
+  parts.push(`<h2>Key takeaways</h2><ul>`);
+  insights.forEach((k) => parts.push(`<li>${e(k)}</li>`));
+  parts.push(`</ul><h2>Suggested next steps</h2><ol>`);
+  steps.forEach((s) => parts.push(`<li><strong>${e(s.step)}</strong> — ${e(s.detail)}</li>`));
+  parts.push(`</ol><h2>Resources to explore</h2><ul>`);
+  resources.forEach((r) => parts.push(`<li><strong>${e(r.label)}</strong> — ${e(r.description)}</li>`));
+  parts.push(`</ul></body></html>`);
+  return parts.join("");
 }
