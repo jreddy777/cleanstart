@@ -61,6 +61,7 @@ const CHIPS: Record<Tenure, { category: string; prompt: string }[]> = {
 };
 
 function ChatPage() {
+  const navigate = useNavigate();
   const [initialMessages, setInitialMessages] = useState<UIMessage[] | null>(null);
   const [tenure, setTenure] = useState<Tenure | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
