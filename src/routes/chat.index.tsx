@@ -132,6 +132,17 @@ function ChatPage() {
     setTimeout(() => inputRef.current?.focus(), 0);
   };
 
+  const resetTenure = () => {
+    setTenure(null);
+    try {
+      window.localStorage.removeItem(TENURE_KEY);
+    } catch {
+      // ignore
+    }
+  };
+
+
+
   const handleSend = (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || isBusy) return;
