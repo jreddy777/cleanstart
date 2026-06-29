@@ -13,34 +13,31 @@ type Body = {
 };
 
 const TENURE_LABEL: Record<NonNullable<Tenure>, string> = {
-  homeowner: "Homeowner",
-  renter: "Renter",
-  curious: "Exploring / not sure yet",
+  homeowner: "homeowner",
+  renter: "renter",
+  curious: "exploring (not sure yet)",
 };
 
 function buildContextSystem(tenure: Tenure, location: Location) {
-  const tenureLabel = tenure ? TENURE_LABEL[tenure] : "Unknown";
-  const locationLine = location
-    ? `${location.city}, ${location.state} served by ${location.utility}`
-    : "Location not provided";
-  const knownBits: string[] = [];
-  if (tenure) knownBits.push(`their housing situation (${tenureLabel})`);
-  if (location) knownBits.push(`their location (${locationLine})`);
-  const alreadyKnown = knownBits.length
-    ? `\n\nIMPORTANT: You ALREADY KNOW ${knownBits.join(" and ")}. DO NOT ask the user about ${tenure ? "ownership/renting" : ""}${tenure && location ? " or " : ""}${location ? "their zip code or location" : ""} again — that context was collected before the chat started. Use it directly to personalize your first response.`
-    : "";
+  // Resolve every placeholder up front — never leave a [BRACKET] token in
+  // the final prompt, since the model treats unresolved placeholders as
+  // unknown context and re-asks the user.
+  const tenureValue = tenure ? TENURE_LABEL[tenure] : "not provided";
+  const cityState = location ? `${location.city}, ${location.state}` : "not provided";
+  const utility = location?.utility ? location.utility : "not provided";
 
-  return `You are Clean Start, a friendly and knowledgeable clean energy guide for households. Your job is to educate — never to sell. Keep answers conversational, plain-language, and under 120 words.
+  return `USER SESSION CONTEXT (collected during onboarding, before this chat began):
+- Tenure: ${tenureValue}
+- Location: ${cityState}
+- Utility: ${utility}
 
-The user has provided the following context:
-- Tenure: ${tenureLabel}
-- Location: ${locationLine}${alreadyKnown}
+IMPORTANT: The user has already provided their tenure and location during onboarding. Do NOT ask for ownership status, location, state, city, zip code, or utility again. Use the context above to personalize responses directly. Only ask follow-up questions about topics not already covered by the session context.
 
-Use this context to personalize every response from message one:
-- Homeowners: focus on installations, tax credits, and utility rebate programs
-- Renters: focus on community solar, portable upgrades, renter-eligible rebates, and EV credits
-- Explorers: give accessible overviews of all options
-- When location is known: reference the city, state, and utility by name; surface state-specific programs and utility rebates relevant to that service territory`;
+Personalization rules:
+- Homeowner: focus on installations, tax credits, utility rebates.
+- Renter: focus on community solar, portable upgrades, renter-eligible rebates, EV credits.
+- Exploring: give accessible overviews of all options.
+- When location is known, reference the city, state, and utility by name and surface state-specific programs relevant to that service territory.`;
 }
 
 // Very small in-memory rate limiter, per worker instance. Best-effort only.
@@ -84,16 +81,29 @@ export const Route = createFileRoute("/api/public/chat-guest")({
 
         const assistantTurnCount = trimmed.filter((m) => m.role === "assistant").length;
         const tenure = body.tenure ?? null;
+        const location = body.location ?? null;
         const personaFromTenure: Persona =
           tenure === "homeowner" || tenure === "renter" || tenure === "curious" ? tenure : null;
-        // If tenure/location are already known, skip the DISCOVERY stage so the
-        // model doesn't re-ask for context we already collected during onboarding.
-        const contextKnownBoost = (tenure ? 1 : 0) + (body.location ? 1 : 0);
+
+        // Verify onboarding context survives to prompt construction. If these
+        // log as null the placeholders fall back to "not provided" and the
+        // model will re-ask — which is the bug we just fixed.
+        console.log("Session context:", {
+          tenure,
+          city: location?.city ?? null,
+          state: location?.state ?? null,
+          utility: location?.utility ?? null,
+        });
+
+        // When onboarding context exists, skip the base prompt's DISCOVERY
+        // stage (which instructs the model to ask getting-to-know-you
+        // questions) by pushing the turn counter past it.
+        const contextKnownBoost = (tenure ? 1 : 0) + (location ? 1 : 0);
         const baseSystem = buildSystemPrompt({
           persona: body.persona ?? personaFromTenure,
           assistantTurnCount: assistantTurnCount + contextKnownBoost,
         });
-        const system = `${buildContextSystem(tenure, body.location ?? null)}\n\n${baseSystem}`;
+        const system = `${buildContextSystem(tenure, location)}\n\n${baseSystem}`;
 
         const gateway = createLovableAiGatewayProvider(LOVABLE_API_KEY);
         const model = gateway("google/gemini-3-flash-preview");
