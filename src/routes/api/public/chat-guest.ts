@@ -83,11 +83,14 @@ export const Route = createFileRoute("/api/public/chat-guest")({
         const trimmed = messages.slice(-20);
 
         const assistantTurnCount = trimmed.filter((m) => m.role === "assistant").length;
+        const tenure = body.tenure ?? null;
+        const personaFromTenure: Persona =
+          tenure === "homeowner" || tenure === "renter" || tenure === "curious" ? tenure : null;
         const baseSystem = buildSystemPrompt({
-          persona: body.persona ?? null,
+          persona: body.persona ?? personaFromTenure,
           assistantTurnCount,
         });
-        const system = `${buildContextSystem(body.tenure ?? null, body.location ?? null)}\n\n${baseSystem}`;
+        const system = `${buildContextSystem(tenure, body.location ?? null)}\n\n${baseSystem}`;
 
         const gateway = createLovableAiGatewayProvider(LOVABLE_API_KEY);
         const model = gateway("google/gemini-3-flash-preview");
