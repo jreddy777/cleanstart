@@ -169,7 +169,17 @@ function ChatPage() {
       <div className="mx-auto flex h-[calc(100vh-12rem)] min-h-[500px] max-w-3xl flex-col px-4 pb-4 pt-4">
         {/* Thread / step area */}
         {step === 3 ? (
-          <Conversation className="flex-1">
+          <>
+            {messages.filter((m) => m.role === "assistant").length >= 3 && (
+              <div className="mb-3 flex justify-end">
+                <Button variant="outline" size="sm" asChild>
+                  <Link to="/report">
+                    <FileText className="mr-1 h-4 w-4" /> Generate report
+                  </Link>
+                </Button>
+              </div>
+            )}
+            <Conversation className="flex-1">
             <ConversationContent className="px-0">
               <div className="flex flex-col gap-6">
                 {messages.map((m) => {
