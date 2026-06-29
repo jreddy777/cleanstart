@@ -58,7 +58,7 @@ const solar: Resource[] = [
     description:
       "NREL's free tool to estimate how much electricity a solar system would generate at any U.S. address.",
     label: "Solar",
-    href: "https://pvwatts.nrel.gov",
+    href: "https://pvwatts.nlr.gov/",
   },
   {
     title: "Rewiring America Savings Calculator",
