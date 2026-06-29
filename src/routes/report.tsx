@@ -19,10 +19,12 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { generateReport, getReport } from "@/lib/report.functions";
+import { generateGuestReport } from "@/lib/guest-report.functions";
 
 const searchSchema = z.object({
   sessionId: z.string().uuid().optional(),
   example: z.coerce.boolean().optional(),
+  guest: z.coerce.boolean().optional(),
 });
 
 export const Route = createFileRoute("/report")({
