@@ -10,7 +10,16 @@ import {
 } from "@/components/ai-elements/conversation";
 import { MessageResponse } from "@/components/ai-elements/message";
 import { Button } from "@/components/ui/button";
-import { Home, Building2, HelpCircle, ArrowUp, FileText } from "lucide-react";
+import {
+  Home,
+  Building2,
+  HelpCircle,
+  ArrowUp,
+  FileText,
+  MapPin,
+  MapPinCheck,
+  Loader2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -30,13 +39,53 @@ export const Route = createFileRoute("/chat/")({
 
 const STORAGE_KEY = "cleanstart.chat.v1";
 const TENURE_KEY = "cleanstart.tenure.v1";
+const LOCATION_KEY = "cleanstart.location.v1";
 
 type Tenure = "homeowner" | "renter" | "curious";
+type Location = {
+  zip: string;
+  city: string;
+  state: string;
+  utility: string;
+};
 
 const TENURE_META: Record<Tenure, { label: string; icon: typeof Home }> = {
   homeowner: { label: "Homeowner", icon: Home },
   renter: { label: "Renter", icon: Building2 },
   curious: { label: "Exploring", icon: HelpCircle },
+};
+
+const STATE_UTILITY: Record<string, string> = {
+  CA: "PG&E",
+  NY: "Con Edison",
+  MA: "Eversource",
+  IL: "ComEd",
+  GA: "Georgia Power",
+  VA: "Dominion Energy",
+  TX: "Oncor",
+  AZ: "APS",
+  WA: "Puget Sound Energy",
+  FL: "FPL",
+  CT: "Eversource",
+  NH: "Eversource",
+  NJ: "PSE&G",
+  PA: "PECO",
+  OH: "AEP Ohio",
+  MI: "DTE Energy",
+  MN: "Xcel Energy",
+  CO: "Xcel Energy",
+  NC: "Duke Energy",
+  SC: "Duke Energy",
+  TN: "TVA",
+  OR: "Portland General Electric",
+  NV: "NV Energy",
+  MD: "BGE",
+  IN: "Duke Energy Indiana",
+  WI: "We Energies",
+  MO: "Ameren Missouri",
+  AL: "Alabama Power",
+  LA: "Entergy",
+  KY: "LG&E",
 };
 
 const CHIPS: Record<Tenure, { category: string; prompt: string }[]> = {
@@ -64,6 +113,8 @@ function ChatPage() {
   const navigate = useNavigate();
   const [initialMessages, setInitialMessages] = useState<UIMessage[] | null>(null);
   const [tenure, setTenure] = useState<Tenure | null>(null);
+  const [location, setLocation] = useState<Location | null>(null);
+  const [zipStepDone, setZipStepDone] = useState(false);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const [input, setInput] = useState("");
 
@@ -85,15 +136,25 @@ function ChatPage() {
     } catch {
       // ignore
     }
+    try {
+      const raw = window.localStorage.getItem(LOCATION_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Location | { skipped: true };
+        if ("zip" in parsed) setLocation(parsed);
+        setZipStepDone(true);
+      }
+    } catch {
+      // ignore
+    }
   }, []);
 
   const transport = useMemo(
     () =>
       new DefaultChatTransport({
         api: "/api/public/chat-guest",
-        body: () => ({ persona: null, tenure }),
+        body: () => ({ persona: null, tenure, location }),
       }),
-    [tenure],
+    [tenure, location],
   );
 
   const { messages, sendMessage, status } = useChat({
@@ -131,25 +192,54 @@ function ChatPage() {
     } catch {
       // ignore
     }
-    setTimeout(() => inputRef.current?.focus(), 0);
   };
 
   const resetTenure = () => {
     setTenure(null);
+    setZipStepDone(false);
+    setLocation(null);
     try {
       window.localStorage.removeItem(TENURE_KEY);
+      window.localStorage.removeItem(LOCATION_KEY);
     } catch {
       // ignore
     }
   };
 
+  const resetZip = () => {
+    setZipStepDone(false);
+    setLocation(null);
+    try {
+      window.localStorage.removeItem(LOCATION_KEY);
+    } catch {
+      // ignore
+    }
+  };
 
+  const handleLocationResolved = (loc: Location | null) => {
+    if (loc) {
+      setLocation(loc);
+      try {
+        window.localStorage.setItem(LOCATION_KEY, JSON.stringify(loc));
+      } catch {
+        // ignore
+      }
+    } else {
+      try {
+        window.localStorage.setItem(LOCATION_KEY, JSON.stringify({ skipped: true }));
+      } catch {
+        // ignore
+      }
+    }
+    setZipStepDone(true);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  };
 
   const handleSend = (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || isBusy) return;
-    // If user sends from earlier steps, default tenure to curious so flow can proceed
     if (!tenure) pickTenure("curious");
+    if (!zipStepDone) setZipStepDone(true);
     sendMessage({ text: trimmed });
     setInput("");
   };
@@ -162,14 +252,19 @@ function ChatPage() {
   };
 
   const hasMessages = messages.length > 0;
-  const step: 1 | 2 | 3 = hasMessages ? 3 : tenure ? 2 : 1;
+  const step: 1 | 2 | 3 | 4 = hasMessages
+    ? 4
+    : !tenure
+      ? 1
+      : !zipStepDone
+        ? 2
+        : 3;
 
   return (
     <>
       <PrivacyBanner />
       <div className="mx-auto flex h-[calc(100vh-12rem)] min-h-[500px] max-w-3xl flex-col px-4 pb-4 pt-4">
-        {/* Thread / step area */}
-        {step === 3 ? (
+        {step === 4 ? (
           <>
             {messages.filter((m) => m.role === "assistant").length >= 3 && (
               <div className="mb-3 flex justify-end">
@@ -178,15 +273,17 @@ function ChatPage() {
                   size="sm"
                   onClick={() => {
                     try {
-                      const transcript = messages.map((m) => ({
-                        role: m.role,
-                        content: m.parts
-                          .map((p) => (p.type === "text" ? p.text : ""))
-                          .join(""),
-                      })).filter((m) => m.content.trim().length > 0);
+                      const transcript = messages
+                        .map((m) => ({
+                          role: m.role,
+                          content: m.parts
+                            .map((p) => (p.type === "text" ? p.text : ""))
+                            .join(""),
+                        }))
+                        .filter((m) => m.content.trim().length > 0);
                       window.sessionStorage.setItem(
                         "cleanstart.guest-report.v1",
-                        JSON.stringify({ tenure, messages: transcript }),
+                        JSON.stringify({ tenure, location, messages: transcript }),
                       );
                     } catch {
                       // ignore
@@ -199,67 +296,71 @@ function ChatPage() {
               </div>
             )}
             <Conversation className="flex-1">
-            <ConversationContent className="px-0">
-              <div className="flex flex-col gap-6">
-                {messages.map((m) => {
-                  const isUser = m.role === "user";
-                  const text = m.parts
-                    .map((p) => (p.type === "text" ? p.text : ""))
-                    .join("");
-                  return (
-                    <div
-                      key={m.id}
-                      className={cn(
-                        "flex flex-col gap-1",
-                        isUser ? "items-end" : "items-start",
-                      )}
-                    >
-                      <span className="px-1 text-xs text-muted-foreground">
-                        {isUser ? "You" : "Clean Start"}
-                      </span>
+              <ConversationContent className="px-0">
+                <div className="flex flex-col gap-6">
+                  {messages.map((m) => {
+                    const isUser = m.role === "user";
+                    const text = m.parts
+                      .map((p) => (p.type === "text" ? p.text : ""))
+                      .join("");
+                    return (
                       <div
+                        key={m.id}
                         className={cn(
-                          "max-w-[85%] rounded-2xl px-4 py-3 text-sm",
-                          isUser
-                            ? "rounded-br-sm bg-primary text-primary-foreground"
-                            : "rounded-bl-sm border border-border bg-card text-foreground",
+                          "flex flex-col gap-1",
+                          isUser ? "items-end" : "items-start",
                         )}
                       >
-                        {isUser ? (
-                          <p className="whitespace-pre-wrap">{text}</p>
-                        ) : (
-                          <MessageResponse>{text}</MessageResponse>
-                        )}
+                        <span className="px-1 text-xs text-muted-foreground">
+                          {isUser ? "You" : "Clean Start"}
+                        </span>
+                        <div
+                          className={cn(
+                            "max-w-[85%] rounded-2xl px-4 py-3 text-sm",
+                            isUser
+                              ? "rounded-br-sm bg-primary text-primary-foreground"
+                              : "rounded-bl-sm border border-border bg-card text-foreground",
+                          )}
+                        >
+                          {isUser ? (
+                            <p className="whitespace-pre-wrap">{text}</p>
+                          ) : (
+                            <MessageResponse>{text}</MessageResponse>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {status === "submitted" && (
+                    <div className="flex flex-col gap-1 items-start">
+                      <span className="px-1 text-xs text-muted-foreground">Clean Start</span>
+                      <div className="max-w-[85%] rounded-2xl rounded-bl-sm border border-border bg-card px-4 py-3">
+                        <TypingDots />
                       </div>
                     </div>
-                  );
-                })}
-                {status === "submitted" && (
-                  <div className="flex flex-col gap-1 items-start">
-                    <span className="px-1 text-xs text-muted-foreground">
-                      Clean Start
-                    </span>
-                    <div className="max-w-[85%] rounded-2xl rounded-bl-sm border border-border bg-card px-4 py-3">
-                      <TypingDots />
-                    </div>
-                  </div>
-                )}
-              </div>
-            </ConversationContent>
-            <ConversationScrollButton />
-          </Conversation>
+                  )}
+                </div>
+              </ConversationContent>
+              <ConversationScrollButton />
+            </Conversation>
           </>
         ) : (
           <div className="flex-1 overflow-y-auto">
-            {step === 1 ? (
-              <TenureStep onPick={pickTenure} />
-            ) : (
-              <ChipsStep tenure={tenure!} onPick={handleSend} onChange={resetTenure} disabled={isBusy} />
+            {step === 1 && <TenureStep onPick={pickTenure} />}
+            {step === 2 && <ZipStep onDone={handleLocationResolved} />}
+            {step === 3 && (
+              <ChipsStep
+                tenure={tenure!}
+                location={location}
+                onPick={handleSend}
+                onChangeTenure={resetTenure}
+                onChangeZip={resetZip}
+                disabled={isBusy}
+              />
             )}
           </div>
         )}
 
-        {/* Input bar */}
         <div className="mt-3 border-t border-border pt-3">
           <div className="relative">
             <textarea
@@ -290,21 +391,23 @@ function ChatPage() {
   );
 }
 
-function StepDots({ active }: { active: 1 | 2 }) {
+function StepDots({ active }: { active: 1 | 2 | 3 }) {
+  const dots: (1 | 2 | 3)[] = [1, 2, 3];
   return (
     <div className="mb-6 flex items-center justify-center gap-2">
-      <span
-        className={cn(
-          "h-1.5 rounded-full transition-all",
-          active === 1 ? "w-6 bg-primary" : "w-1.5 bg-muted",
-        )}
-      />
-      <span
-        className={cn(
-          "h-1.5 rounded-full transition-all",
-          active === 2 ? "w-6 bg-primary" : "w-1.5 bg-muted",
-        )}
-      />
+      {dots.map((n) => {
+        const isActive = n === active;
+        const isDone = n < active;
+        return (
+          <span
+            key={n}
+            className={cn(
+              "h-1.5 rounded-full transition-all duration-300",
+              isActive ? "w-5 bg-primary" : isDone ? "w-1.5 bg-primary" : "w-1.5 bg-muted",
+            )}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -325,7 +428,7 @@ function TenureStep({ onPick }: { onPick: (t: Tenure) => void }) {
         Tell us about your home
       </h2>
       <p className="mt-3 max-w-md text-sm text-muted-foreground">
-        This helps us tailor advice, rebates, and programs to your actual situation.
+        Helps us tailor advice, rebates, and programs to your actual situation.
       </p>
 
       <div className="mt-8 grid w-full max-w-[560px] grid-cols-1 gap-3 sm:grid-cols-3">
@@ -350,39 +453,153 @@ function TenureStep({ onPick }: { onPick: (t: Tenure) => void }) {
   );
 }
 
+function ZipStep({ onDone }: { onDone: (loc: Location | null) => void }) {
+  const [zip, setZip] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [resolved, setResolved] = useState<Location | null>(null);
+
+  const lookup = async () => {
+    if (zip.length !== 5) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`https://api.zippopotam.us/us/${zip}`);
+      if (!res.ok) throw new Error("not found");
+      const data = (await res.json()) as {
+        places: Array<{ "place name": string; "state abbreviation": string }>;
+      };
+      const place = data.places?.[0];
+      if (!place) throw new Error("not found");
+      const state = place["state abbreviation"];
+      const loc: Location = {
+        zip,
+        city: place["place name"],
+        state,
+        utility: STATE_UTILITY[state] ?? "your local utility",
+      };
+      setResolved(loc);
+      setTimeout(() => onDone(loc), 900);
+    } catch {
+      setError("We couldn't find that zip code. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex h-full flex-col items-center justify-center px-2 py-8 text-center">
+      <StepDots active={2} />
+      <span className="mb-5 flex h-11 w-11 items-center justify-center rounded-full bg-primary-light">
+        <MapPin className="h-5 w-5 text-primary-dark" />
+      </span>
+      <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+        What's your zip code?
+      </h2>
+      <p className="mt-3 max-w-md text-sm text-muted-foreground">
+        Rebates and programs vary by utility and state. Your zip helps us surface
+        what's actually available where you live.
+      </p>
+
+      <div className="mt-8 flex w-full max-w-[320px] flex-col gap-3">
+        <input
+          type="text"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          maxLength={5}
+          value={zip}
+          onChange={(e) => {
+            const v = e.target.value.replace(/\D/g, "").slice(0, 5);
+            setZip(v);
+            setError(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && zip.length === 5) lookup();
+          }}
+          placeholder="e.g. 94103"
+          disabled={loading || !!resolved}
+          className="rounded-md border border-border bg-card px-4 py-3 text-center text-lg tracking-[0.3em] shadow-sm placeholder:tracking-normal placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60"
+        />
+        <Button
+          onClick={lookup}
+          disabled={zip.length !== 5 || loading || !!resolved}
+        >
+          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Look up"}
+        </Button>
+
+        {resolved && (
+          <div className="mt-1 inline-flex items-center justify-center gap-2 self-center rounded-full border border-primary bg-primary-light px-3 py-1.5 text-sm font-medium text-primary-dark">
+            <MapPinCheck className="h-4 w-4" />
+            {resolved.city}, {resolved.state} · {resolved.utility}
+          </div>
+        )}
+        {error && <p className="text-sm text-destructive">{error}</p>}
+
+        <p className="mt-1 text-xs text-muted-foreground">
+          Only your zip — never your address
+        </p>
+        <button
+          type="button"
+          onClick={() => onDone(null)}
+          className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+        >
+          Skip for now →
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function ChipsStep({
   tenure,
+  location,
   onPick,
-  onChange,
+  onChangeTenure,
+  onChangeZip,
   disabled,
 }: {
   tenure: Tenure;
+  location: Location | null;
   onPick: (text: string) => void;
-  onChange: () => void;
+  onChangeTenure: () => void;
+  onChangeZip: () => void;
   disabled: boolean;
 }) {
   const { label, icon: Icon } = TENURE_META[tenure];
   return (
     <div className="flex h-full flex-col items-center justify-center px-2 py-8 text-center">
-      <StepDots active={2} />
-      <span className="mb-5 inline-flex items-center gap-1.5 rounded-full border border-primary bg-primary-light px-3 py-1 text-xs font-medium text-primary-dark">
-        <Icon className="h-3.5 w-3.5" />
-        {label}
-        <span className="text-primary-dark/40">·</span>
+      <StepDots active={3} />
+
+      <div className="mb-5 flex flex-wrap items-center justify-center gap-2">
         <button
           type="button"
-          onClick={onChange}
-          className="text-[12px] font-normal text-muted-foreground hover:underline"
+          onClick={onChangeTenure}
+          className="inline-flex items-center gap-1.5 rounded-full border border-primary bg-primary-light px-3 py-1 text-xs font-medium text-primary-dark hover:bg-primary-light/70"
         >
-          Change
+          <Icon className="h-3.5 w-3.5" />
+          {label}
+          <span className="text-[11px] font-normal text-muted-foreground">· change</span>
         </button>
-      </span>
+        <button
+          type="button"
+          onClick={onChangeZip}
+          className="inline-flex items-center gap-1.5 rounded-full border border-primary bg-primary-light px-3 py-1 text-xs font-medium text-primary-dark hover:bg-primary-light/70"
+        >
+          <MapPin className="h-3.5 w-3.5" />
+          {location ? `${location.city}, ${location.state}` : "No location"}
+          <span className="text-[11px] font-normal text-muted-foreground">
+            · {location ? "change" : "add"}
+          </span>
+        </button>
+      </div>
 
       <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
         What are you curious about?
       </h2>
       <p className="mt-3 max-w-md text-sm text-muted-foreground">
-        Ask anything — no jargon, no pressure.
+        {location
+          ? `Showing what's available in ${location.city}, ${location.state} — no jargon, no pressure.`
+          : "Ask anything — no jargon, no pressure."}
       </p>
 
       <div className="mt-8 grid w-full max-w-[480px] grid-cols-1 gap-3 sm:grid-cols-2">
