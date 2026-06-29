@@ -481,9 +481,22 @@ function ReportView({
                 Regenerate
               </Button>
             )}
-            <Button size="sm" onClick={handleDownload}>
-              <Download className="mr-1 h-4 w-4" /> Download
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm">
+                  <Download className="mr-1 h-4 w-4" /> Download
+                  <ChevronDown className="ml-1 h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={downloadPdf}>PDF (.pdf)</DropdownMenuItem>
+                <DropdownMenuItem onClick={downloadDocx}>Word (.docx)</DropdownMenuItem>
+                <DropdownMenuItem onClick={downloadMarkdown}>Markdown (.md)</DropdownMenuItem>
+                <DropdownMenuItem onClick={downloadHtml}>HTML (.html)</DropdownMenuItem>
+                <DropdownMenuItem onClick={downloadText}>Plain text (.txt)</DropdownMenuItem>
+                <DropdownMenuItem onClick={downloadJson}>JSON (.json)</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
