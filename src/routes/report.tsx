@@ -286,17 +286,182 @@ function ReportView({
   const steps = (report.next_steps as Step[]) ?? [];
   const resources = (report.resources as Resource[]) ?? [];
 
-  const handleDownload = () => {
-    const md = reportToMarkdown(report, { topOptions, insights, steps, resources });
-    const blob = new Blob([md], { type: "text/markdown" });
+  const filenameBase = "clean-start-report";
+
+  const triggerDownload = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "clean-start-report.md";
+    a.download = filename;
     document.body.append(a);
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+  };
+
+  const downloadMarkdown = () => {
+    const md = reportToMarkdown(report, { topOptions, insights, steps, resources });
+    triggerDownload(new Blob([md], { type: "text/markdown" }), `${filenameBase}.md`);
+  };
+
+  const downloadText = () => {
+    const md = reportToMarkdown(report, { topOptions, insights, steps, resources });
+    triggerDownload(new Blob([md], { type: "text/plain" }), `${filenameBase}.txt`);
+  };
+
+  const downloadHtml = () => {
+    const html = reportToHtml(report, { topOptions, insights, steps, resources });
+    triggerDownload(new Blob([html], { type: "text/html" }), `${filenameBase}.html`);
+  };
+
+  const downloadJson = () => {
+    triggerDownload(
+      new Blob([JSON.stringify(report, null, 2)], { type: "application/json" }),
+      `${filenameBase}.json`,
+    );
+  };
+
+  const downloadPdf = async () => {
+    try {
+      const { jsPDF } = await import("jspdf");
+      const doc = new jsPDF({ unit: "pt", format: "letter" });
+      const margin = 48;
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const maxWidth = pageWidth - margin * 2;
+      let y = margin;
+
+      const ensureSpace = (h: number) => {
+        if (y + h > pageHeight - margin) {
+          doc.addPage();
+          y = margin;
+        }
+      };
+      const writeLines = (text: string, size: number, bold = false) => {
+        doc.setFont("helvetica", bold ? "bold" : "normal");
+        doc.setFontSize(size);
+        const lines = doc.splitTextToSize(text, maxWidth) as string[];
+        const lineHeight = size * 1.3;
+        for (const line of lines) {
+          ensureSpace(lineHeight);
+          doc.text(line, margin, y);
+          y += lineHeight;
+        }
+      };
+      const gap = (h = 8) => {
+        y += h;
+      };
+
+      writeLines("Clean Start — Your Research Summary", 20, true);
+      gap(6);
+      if (report.readiness_score !== null) {
+        writeLines(`Readiness: ${report.readiness_score}/100`, 11);
+        gap(4);
+      }
+
+      writeLines("Top options", 14, true);
+      gap(2);
+      topOptions.forEach((o) => {
+        writeLines(o.title, 12, true);
+        writeLines(o.why, 11);
+        if (o.good_fit_when?.length) {
+          writeLines("Good fit when:", 11, true);
+          o.good_fit_when.forEach((g) => writeLines(`• ${g}`, 11));
+        }
+        if (o.tradeoffs) writeLines(`Tradeoff: ${o.tradeoffs}`, 11);
+        gap(6);
+      });
+
+      writeLines("Key takeaways", 14, true);
+      gap(2);
+      insights.forEach((k) => writeLines(`• ${k}`, 11));
+      gap(6);
+
+      writeLines("Suggested next steps", 14, true);
+      gap(2);
+      steps.forEach((s, i) => {
+        writeLines(`${i + 1}. ${s.step}`, 12, true);
+        writeLines(s.detail, 11);
+        gap(4);
+      });
+
+      writeLines("Resources to explore", 14, true);
+      gap(2);
+      resources.forEach((r) => {
+        writeLines(r.label, 12, true);
+        writeLines(r.description, 11);
+        gap(4);
+      });
+
+      doc.save(`${filenameBase}.pdf`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't create PDF");
+    }
+  };
+
+  const downloadDocx = async () => {
+    try {
+      const { Document, Packer, Paragraph, HeadingLevel, TextRun } = await import("docx");
+      const children: InstanceType<typeof Paragraph>[] = [];
+      children.push(
+        new Paragraph({
+          heading: HeadingLevel.TITLE,
+          children: [new TextRun("Clean Start — Your Research Summary")],
+        }),
+      );
+      if (report.readiness_score !== null) {
+        children.push(
+          new Paragraph({
+            children: [new TextRun({ text: `Readiness: ${report.readiness_score}/100`, bold: true })],
+          }),
+        );
+      }
+      children.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun("Top options")] }));
+      topOptions.forEach((o) => {
+        children.push(new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun(o.title)] }));
+        children.push(new Paragraph({ children: [new TextRun(o.why)] }));
+        if (o.good_fit_when?.length) {
+          children.push(
+            new Paragraph({ children: [new TextRun({ text: "Good fit when:", bold: true })] }),
+          );
+          o.good_fit_when.forEach((g) =>
+            children.push(new Paragraph({ children: [new TextRun(`• ${g}`)] })),
+          );
+        }
+        if (o.tradeoffs)
+          children.push(
+            new Paragraph({
+              children: [
+                new TextRun({ text: "Tradeoff: ", bold: true }),
+                new TextRun(o.tradeoffs),
+              ],
+            }),
+          );
+      });
+      children.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun("Key takeaways")] }));
+      insights.forEach((k) => children.push(new Paragraph({ children: [new TextRun(`• ${k}`)] })));
+      children.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun("Suggested next steps")] }));
+      steps.forEach((s, i) => {
+        children.push(
+          new Paragraph({
+            heading: HeadingLevel.HEADING_2,
+            children: [new TextRun(`${i + 1}. ${s.step}`)],
+          }),
+        );
+        children.push(new Paragraph({ children: [new TextRun(s.detail)] }));
+      });
+      children.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun("Resources to explore")] }));
+      resources.forEach((r) => {
+        children.push(new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun(r.label)] }));
+        children.push(new Paragraph({ children: [new TextRun(r.description)] }));
+      });
+
+      const doc = new Document({ sections: [{ children }] });
+      const blob = await Packer.toBlob(doc);
+      triggerDownload(blob, `${filenameBase}.docx`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't create Word doc");
+    }
   };
 
   return (
