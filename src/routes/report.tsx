@@ -19,10 +19,12 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { generateReport, getReport } from "@/lib/report.functions";
+import { generateGuestReport } from "@/lib/guest-report.functions";
 
 const searchSchema = z.object({
   sessionId: z.string().uuid().optional(),
   example: z.coerce.boolean().optional(),
+  guest: z.coerce.boolean().optional(),
 });
 
 export const Route = createFileRoute("/report")({
@@ -90,11 +92,12 @@ const EXAMPLE: ReportRow = {
 };
 
 function ReportPage() {
-  const { sessionId, example } = Route.useSearch();
+  const { sessionId, example, guest } = Route.useSearch();
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const fetchReport = useServerFn(getReport);
   const buildReport = useServerFn(generateReport);
+  const buildGuestReport = useServerFn(generateGuestReport);
 
   const [report, setReport] = useState<ReportRow | null>(example ? EXAMPLE : null);
   const [loading, setLoading] = useState(false);
@@ -109,6 +112,33 @@ function ReportPage() {
       .catch((e) => setError(e instanceof Error ? e.message : "Couldn't load report"))
       .finally(() => setLoading(false));
   }, [sessionId, user, example, fetchReport]);
+
+  // Guest flow: read transcript from sessionStorage and generate without auth
+  useEffect(() => {
+    if (!guest || example || report || generating) return;
+    if (typeof window === "undefined") return;
+    let payload: { tenure: "homeowner" | "renter" | "curious" | null; messages: { role: "user" | "assistant" | "system"; content: string }[] } | null = null;
+    try {
+      const raw = window.sessionStorage.getItem("cleanstart.guest-report.v1");
+      if (raw) payload = JSON.parse(raw);
+    } catch {
+      // ignore
+    }
+    if (!payload || !payload.messages?.length) {
+      setError("No conversation found. Start a chat first.");
+      return;
+    }
+    setGenerating(true);
+    setError(null);
+    buildGuestReport({ data: payload })
+      .then((r) => setReport(r as unknown as ReportRow))
+      .catch((e) => {
+        const msg = e instanceof Error ? e.message : "Couldn't generate report";
+        setError(msg);
+        toast.error(msg);
+      })
+      .finally(() => setGenerating(false));
+  }, [guest, example, report, generating, buildGuestReport]);
 
   const handleGenerate = async () => {
     if (!sessionId) return;
@@ -129,6 +159,34 @@ function ReportPage() {
 
   if (example) {
     return <ReportView report={EXAMPLE} isExample />;
+  }
+
+  if (guest) {
+    if (generating || (!report && !error)) {
+      return (
+        <div className="mx-auto max-w-2xl px-4 py-20 text-center">
+          <Loader2 className="mx-auto mb-4 h-6 w-6 animate-spin text-primary" />
+          <h1 className="text-2xl font-semibold tracking-tight">Generating your report…</h1>
+          <p className="mt-3 text-sm text-muted-foreground">
+            Reading your conversation and putting together a calm, personalized summary.
+          </p>
+        </div>
+      );
+    }
+    if (error && !report) {
+      return (
+        <div className="mx-auto max-w-2xl px-4 py-20 text-center">
+          <h1 className="text-2xl font-semibold tracking-tight">Couldn't generate report</h1>
+          <p className="mt-3 text-sm text-muted-foreground">{error}</p>
+          <div className="mt-6">
+            <Button asChild>
+              <Link to="/chat">Back to chat</Link>
+            </Button>
+          </div>
+        </div>
+      );
+    }
+    if (report) return <ReportView report={report} />;
   }
 
   if (!sessionId) {
