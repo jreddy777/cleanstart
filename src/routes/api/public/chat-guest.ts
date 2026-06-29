@@ -23,18 +23,24 @@ function buildContextSystem(tenure: Tenure, location: Location) {
   const locationLine = location
     ? `${location.city}, ${location.state} served by ${location.utility}`
     : "Location not provided";
+  const knownBits: string[] = [];
+  if (tenure) knownBits.push(`their housing situation (${tenureLabel})`);
+  if (location) knownBits.push(`their location (${locationLine})`);
+  const alreadyKnown = knownBits.length
+    ? `\n\nIMPORTANT: You ALREADY KNOW ${knownBits.join(" and ")}. DO NOT ask the user about ${tenure ? "ownership/renting" : ""}${tenure && location ? " or " : ""}${location ? "their zip code or location" : ""} again — that context was collected before the chat started. Use it directly to personalize your first response.`
+    : "";
+
   return `You are Clean Start, a friendly and knowledgeable clean energy guide for households. Your job is to educate — never to sell. Keep answers conversational, plain-language, and under 120 words.
 
 The user has provided the following context:
 - Tenure: ${tenureLabel}
-- Location: ${locationLine}
+- Location: ${locationLine}${alreadyKnown}
 
 Use this context to personalize every response from message one:
 - Homeowners: focus on installations, tax credits, and utility rebate programs
 - Renters: focus on community solar, portable upgrades, renter-eligible rebates, and EV credits
 - Explorers: give accessible overviews of all options
-- When location is known: reference the city, state, and utility by name; surface state-specific programs and utility rebates relevant to that service territory
-- When location is unknown: ask for zip code naturally as your first follow-up question`;
+- When location is known: reference the city, state, and utility by name; surface state-specific programs and utility rebates relevant to that service territory`;
 }
 
 // Very small in-memory rate limiter, per worker instance. Best-effort only.
@@ -77,11 +83,14 @@ export const Route = createFileRoute("/api/public/chat-guest")({
         const trimmed = messages.slice(-20);
 
         const assistantTurnCount = trimmed.filter((m) => m.role === "assistant").length;
+        const tenure = body.tenure ?? null;
+        const personaFromTenure: Persona =
+          tenure === "homeowner" || tenure === "renter" || tenure === "curious" ? tenure : null;
         const baseSystem = buildSystemPrompt({
-          persona: body.persona ?? null,
+          persona: body.persona ?? personaFromTenure,
           assistantTurnCount,
         });
-        const system = `${buildContextSystem(body.tenure ?? null, body.location ?? null)}\n\n${baseSystem}`;
+        const system = `${buildContextSystem(tenure, body.location ?? null)}\n\n${baseSystem}`;
 
         const gateway = createLovableAiGatewayProvider(LOVABLE_API_KEY);
         const model = gateway("google/gemini-3-flash-preview");
