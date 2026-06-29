@@ -7,8 +7,15 @@ import { PrivacyBanner } from "@/components/PrivacyBanner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   ArrowLeft,
   CheckCircle2,
+  ChevronDown,
   Compass,
   Download,
   FileText,
