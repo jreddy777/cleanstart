@@ -132,6 +132,17 @@ function ChatPage() {
     setTimeout(() => inputRef.current?.focus(), 0);
   };
 
+  const resetTenure = () => {
+    setTenure(null);
+    try {
+      window.localStorage.removeItem(TENURE_KEY);
+    } catch {
+      // ignore
+    }
+  };
+
+
+
   const handleSend = (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || isBusy) return;
@@ -212,7 +223,7 @@ function ChatPage() {
             {step === 1 ? (
               <TenureStep onPick={pickTenure} />
             ) : (
-              <ChipsStep tenure={tenure!} onPick={handleSend} disabled={isBusy} />
+              <ChipsStep tenure={tenure!} onPick={handleSend} onChange={resetTenure} disabled={isBusy} />
             )}
           </div>
         )}
@@ -311,10 +322,12 @@ function TenureStep({ onPick }: { onPick: (t: Tenure) => void }) {
 function ChipsStep({
   tenure,
   onPick,
+  onChange,
   disabled,
 }: {
   tenure: Tenure;
   onPick: (text: string) => void;
+  onChange: () => void;
   disabled: boolean;
 }) {
   const { label, icon: Icon } = TENURE_META[tenure];
@@ -324,7 +337,16 @@ function ChipsStep({
       <span className="mb-5 inline-flex items-center gap-1.5 rounded-full border border-primary bg-primary-light px-3 py-1 text-xs font-medium text-primary-dark">
         <Icon className="h-3.5 w-3.5" />
         {label}
+        <span className="text-primary-dark/40">·</span>
+        <button
+          type="button"
+          onClick={onChange}
+          className="text-[12px] font-normal text-muted-foreground hover:underline"
+        >
+          Change
+        </button>
       </span>
+
       <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
         What are you curious about?
       </h2>
