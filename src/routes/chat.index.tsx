@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
@@ -9,7 +9,8 @@ import {
   ConversationScrollButton,
 } from "@/components/ai-elements/conversation";
 import { MessageResponse } from "@/components/ai-elements/message";
-import { Home, Building2, HelpCircle, ArrowUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Home, Building2, HelpCircle, ArrowUp, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
